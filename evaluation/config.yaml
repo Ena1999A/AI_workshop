@@ -1,0 +1,28 @@
+model: gemini-2.5-flash-lite
+temperature: 0.2
+max_output_tokens: 1024
+
+tasks:
+  intent_classification:
+    dataset: tasks/intent_classification/dataset.json
+    prompts:
+      good: tasks/intent_classification/prompt_good.txt
+      bad: tasks/intent_classification/prompt_bad.txt
+    rubric: tasks/intent_classification/rubric.json
+    type: classification
+
+  leasing_qa:
+    dataset: tasks/leasing_qa/dataset.json
+    prompts:
+      good: tasks/leasing_qa/prompt_good.txt
+      bad: tasks/leasing_qa/prompt_bad.txt
+    rubric: tasks/leasing_qa/rubric.json
+    policy: tasks/leasing_qa/company_policy.txt
+    type: qa
+
+judge:
+  model: gemini-2.5-flash-lite
+  temperature: 0.1
+  max_output_tokens: 512
+
+results_dir: results

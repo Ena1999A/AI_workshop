@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "text": "I would like to continue using the car after my contract ends. Can we prolong the agreement?",
+    "expected_intent": "contract_extension",
+    "category": "clear"
+  },
+  {
+    "id": 2,
+    "text": "Please stop my leasing contract earlier than planned.",
+    "expected_intent": "contract_termination",
+    "category": "clear"
+  },
+  {
+    "id": 3,
+    "text": "I need to increase the mileage allowance on my current contract.",
+    "expected_intent": "contract_modification",
+    "category": "clear"
+  },
+  {
+    "id": 4,
+    "text": "Can I move my monthly payment date to the 15th instead of the 1st?",
+    "expected_intent": "payment_adjustment",
+    "category": "clear"
+  },
+  {
+    "id": 5,
+    "text": "Could you explain what happens at the end of the leasing period?",
+    "expected_intent": "information_request",
+    "category": "clear"
+  },
+  {
+    "id": 6,
+    "text": "I might need the vehicle a bit longer than expected.",
+    "expected_intent": "contract_extension",
+    "category": "ambiguous"
+  },
+  {
+    "id": 7,
+    "text": "Things have changed financially, so I am considering different options for the agreement.",
+    "expected_intent": "information_request",
+    "category": "ambiguous"
+  },
+  {
+    "id": 8,
+    "text": "Is it possible to adjust something in my contract?",
+    "expected_intent": "information_request",
+    "category": "ambiguous"
+  },
+  {
+    "id": 9,
+    "text": "I am not sure I will need the car until the original end date.",
+    "expected_intent": "information_request",
+    "category": "ambiguous"
+  },
+  {
+    "id": 10,
+    "text": "I may need smaller monthly obligations going forward.",
+    "expected_intent": "payment_adjustment",
+    "category": "ambiguous"
+  },
+  {
+    "id": 11,
+    "text": "I am driving more than expected lately.",
+    "expected_intent": "contract_modification",
+    "category": "indirect"
+  },
+  {
+    "id": 12,
+    "text": "My situation has changed and I might not need the vehicle for that long.",
+    "expected_intent": "contract_termination",
+    "category": "indirect"
+  },
+  {
+    "id": 13,
+    "text": "I expect to keep using this car for another year after the agreement ends.",
+    "expected_intent": "contract_extension",
+    "category": "indirect"
+  },
+  {
+    "id": 14,
+    "text": "The current payment schedule is difficult for me to manage.",
+    "expected_intent": "payment_adjustment",
+    "category": "indirect"
+  },
+  {
+    "id": 15,
+    "text": "I am thinking about a different vehicle model.",
+    "expected_intent": "contract_modification",
+    "category": "indirect"
+  },
+  {
+    "id": 16,
+    "text": "I would like to reduce my monthly payment and possibly change the car.",
+    "expected_intent": "payment_adjustment",
+    "category": "multi_intent"
+  },
+  {
+    "id": 17,
+    "text": "Can I switch to another car and extend the agreement at the same time?",
+    "expected_intent": "contract_extension",
+    "category": "multi_intent"
+  },
+  {
+    "id": 18,
+    "text": "I want to end the contract earlier and adjust the final payment if possible.",
+    "expected_intent": "contract_termination",
+    "category": "multi_intent"
+  },
+  {
+    "id": 19,
+    "text": "Is it possible to change the mileage limit and also modify the payment amount?",
+    "expected_intent": "contract_modification",
+    "category": "multi_intent"
+  },
+  {
+    "id": 20,
+    "text": "hi can i pay later in month cuz 1st is problem for me",
+    "expected_intent": "payment_adjustment",
+    "category": "typos"
+  },
+  {
+    "id": 21,
+    "text": "i wanna stop leasing sooner, dont need car anymore",
+    "expected_intent": "contract_termination",
+    "category": "typos"
+  },
+  {
+    "id": 22,
+    "text": "can we change milage limit? i drive more now",
+    "expected_intent": "contract_modification",
+    "category": "typos"
+  },
+  {
+    "id": 23,
+    "text": "need car longer than planned pls advise",
+    "expected_intent": "contract_extension",
+    "category": "typos"
+  },
+  {
+    "id": 24,
+    "text": "What are the penalties if I decide to finish the contract earlier?",
+    "expected_intent": "information_request",
+    "category": "edge_case"
+  },
+  {
+    "id": 25,
+    "text": "Is it allowed to change the mileage limit during the contract period?",
+    "expected_intent": "information_request",
+    "category": "edge_case"
+  },
+  {
+    "id": 26,
+    "text": "Could you let me know whether extending the agreement affects the monthly price?",
+    "expected_intent": "information_request",
+    "category": "edge_case"
+  },
+  {
+    "id": 27,
+    "text": "Hello, I have been reviewing my current agreement and I realized that the end date is approaching, but I still need the vehicle for daily commuting. I would like to understand what options I have to continue using the car after the contract expires.",
+    "expected_intent": "contract_extension",
+    "category": "long"
+  },
+  {
+    "id": 28,
+    "text": "Due to a change in my job location, I am driving significantly more than originally expected. I would like to update the mileage conditions in my agreement so that I avoid additional charges at the end.",
+    "expected_intent": "contract_modification",
+    "category": "long"
+  },
+  {
+    "id": 29,
+    "text": "Unfortunately my financial situation has changed recently and the current monthly amount is becoming difficult to manage. I would like to explore whether the payment amount or schedule can be adjusted.",
+    "expected_intent": "payment_adjustment",
+    "category": "long"
+  },
+  {
+    "id": 30,
+    "text": "I am considering returning the vehicle earlier than planned because I no longer need it for work. Please let me know what steps are required and whether there are any important conditions I should be aware of.",
+    "expected_intent": "contract_termination",
+    "category": "long"
+  }
+]
