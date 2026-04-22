@@ -1,0 +1,36 @@
+{
+  "task": "leasing_qa",
+  "description": "LLM-as-a-judge evaluation rubric for leasing Q&A answers",
+  "scoring": {
+    "scale": "0–2 per criterion",
+    "values": {
+      "0": "Poor — criterion clearly not met",
+      "1": "Acceptable — criterion partially met or with caveats",
+      "2": "Good — criterion clearly met"
+    }
+  },
+  "criteria": {
+    "correctness": {
+      "description": "The answer is factually accurate based on the provided leasing policy",
+      "weight": 2
+    },
+    "faithfulness": {
+      "description": "The answer only uses information from the provided policy — no invented facts",
+      "weight": 2
+    },
+    "clarity": {
+      "description": "The answer is clear, well-structured, and easy to understand",
+      "weight": 1
+    },
+    "policy_alignment": {
+      "description": "The answer correctly reflects company policy boundaries (does not over-promise or make guarantees not in the policy)",
+      "weight": 2
+    },
+    "hallucination": {
+      "description": "0 = hallucination present, 1 = minor unsupported claim, 2 = no hallucination detected",
+      "weight": 2,
+      "note": "Lower score is worse — 0 means hallucination was found"
+    }
+  },
+  "judge_instructions": "Score each criterion independently. For hallucination criterion: assign 0 if the answer makes a specific claim (amount, guarantee, policy rule) that is NOT in the system prompt. Assign 1 if the answer contains vague unsupported phrasing. Assign 2 if the answer is fully grounded."
+}

@@ -1,0 +1,44 @@
+{
+  "task": "intent_classification",
+  "description": "Evaluation rubric for intent classification task",
+  "metrics": {
+    "accuracy": {
+      "description": "Fraction of examples where predicted intent matches expected_intent exactly",
+      "type": "deterministic",
+      "range": "0.0 – 1.0",
+      "target": 0.80
+    },
+    "format_valid_rate": {
+      "description": "Fraction of responses that return valid JSON with required fields",
+      "required_fields": ["intent", "confidence", "explanation", "requires_human_review"],
+      "type": "deterministic",
+      "range": "0.0 – 1.0",
+      "target": 0.95
+    },
+    "avg_confidence": {
+      "description": "Mean confidence score across all responses where JSON was valid",
+      "type": "descriptive",
+      "range": "0.0 – 1.0"
+    },
+    "requires_human_review_rate": {
+      "description": "Fraction of examples flagged as requiring human review",
+      "type": "descriptive",
+      "range": "0.0 – 1.0"
+    },
+    "per_intent_accuracy": {
+      "description": "Accuracy broken down by expected intent",
+      "type": "diagnostic"
+    },
+    "confusion_matrix": {
+      "description": "Predicted vs expected intent counts",
+      "type": "diagnostic"
+    }
+  },
+  "valid_intents": [
+    "contract_extension",
+    "contract_termination",
+    "contract_modification",
+    "payment_adjustment",
+    "information_request"
+  ]
+}

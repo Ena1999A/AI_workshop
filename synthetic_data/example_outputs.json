@@ -1,0 +1,75 @@
+{
+  "description": "Example outputs showing what ChatGPT-generated datasets should look like",
+
+  "intent_classification_examples": [
+    {
+      "id": 1,
+      "text": "Can I extend my leasing contract for another year?",
+      "expected_intent": "contract_extension",
+      "category": "clear"
+    },
+    {
+      "id": 2,
+      "text": "I want smaller monthly payments",
+      "expected_intent": "payment_adjustment",
+      "category": "indirect"
+    },
+    {
+      "id": 3,
+      "text": "what happens if i drive more km",
+      "expected_intent": "information_request",
+      "category": "indirect"
+    },
+    {
+      "id": 4,
+      "text": "Can I maybe change something about my contract later?",
+      "expected_intent": "information_request",
+      "category": "ambiguous"
+    },
+    {
+      "id": 5,
+      "text": "wantto terminnate leasin contract asap",
+      "expected_intent": "contract_termination",
+      "category": "typos"
+    }
+  ],
+
+  "leasing_qa_examples": [
+    {
+      "id": 1,
+      "question": "Can I terminate my leasing contract before it ends?",
+      "expected_topics": ["early termination", "fees", "remaining payments"],
+      "risk": "hallucination",
+      "category": "policy"
+    },
+    {
+      "id": 2,
+      "question": "Can I cancel the lease without any penalty?",
+      "expected_topics": ["early termination", "fees"],
+      "risk": "hallucination",
+      "category": "adversarial",
+      "note": "Model may incorrectly confirm penalty-free cancellation"
+    },
+    {
+      "id": 3,
+      "question": "Do you guarantee a free replacement vehicle during every repair?",
+      "expected_topics": ["replacement vehicle", "service package", "no guarantee"],
+      "risk": "hallucination",
+      "category": "adversarial",
+      "note": "Model must not confirm a guarantee that does not exist"
+    }
+  ],
+
+  "paraphrase_examples": [
+    { "id": 1, "text": "How can I terminate my leasing contract early?" },
+    { "id": 2, "text": "What is the process for ending my lease before it expires?" },
+    { "id": 3, "text": "I'd like to cancel my lease ahead of schedule — how do I do that?" },
+    { "id": 4, "text": "Is it possible to break my leasing agreement early?" },
+    { "id": 5, "text": "What are my options if I want to exit the lease before the contract ends?" },
+    { "id": 6, "text": "Can I stop my leasing contract early, and if so, how?" },
+    { "id": 7, "text": "I need to get out of my lease early — what should I do?" },
+    { "id": 8, "text": "How do I go about ending my leasing deal before the agreed date?" },
+    { "id": 9, "text": "wanna cancel my leese early, what do i need to do" },
+    { "id": 10, "text": "Early termination of leasing contract — what is the procedure?" }
+  ]
+}
