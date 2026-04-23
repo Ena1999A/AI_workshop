@@ -1,0 +1,6 @@
+.env
+venv/
+pii_data/
+**/__pycache__/
+**/logs/
+*.pyc
