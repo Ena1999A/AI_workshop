@@ -142,7 +142,8 @@ def _guard_output(
 def _refresh_summary(client: genai.Client, memory: ConversationMemory) -> None:
     system_prompt = _load_prompt("conversation_summarizer.txt")
     history_text = memory.format_history_for_prompt()
-    prompt_with_history = system_prompt.replace("{history}", history_text)
+    prior = f"PRIOR SUMMARY:\n{memory.summary}\n\n" if memory.summary else ""
+    prompt_with_history = system_prompt.replace("{history}", f"{prior}RECENT EXCHANGES:\n{history_text}")
     new_summary = _call_gemini(client, "", prompt_with_history)
     memory.update_summary(new_summary.strip())
 
@@ -158,6 +159,9 @@ class ChatbotPipeline:
         self.conn = conn
         self.model = model
         self.memory = ConversationMemory()
+        self.last_chunks: list[dict] = []
+        self.last_intent: str = ""
+        self.last_rewritten: str = ""
 
     def process(self, user_input: str) -> str:
         # Step 1: sanitize PII
@@ -183,6 +187,9 @@ class ChatbotPipeline:
         # Step 6: retrieval
         chunks = retrieve_chunks(self.conn, self.model, rewritten, intent, case_id)
         log.debug("Retrieved %d chunk(s)", len(chunks))
+        self.last_chunks = chunks
+        self.last_intent = intent
+        self.last_rewritten = rewritten
 
         # Step 7: answer generation (use original question for natural phrasing)
         draft = _generate_answer(self.client, user_input, intent, chunks, self.memory)

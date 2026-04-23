@@ -1,0 +1,107 @@
+================================================================================
+TESTNI RAZGOVORI — STANDARDNA PITANJA (HRVATSKI)
+================================================================================
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 1 — Datum i kašnjenje plaćanja (FAQ)
+--------------------------------------------------------------------------------
+
+Korisnik: Kada je rok za plaćanje mjesečne rate?
+Korisnik: A što se dogodi ako zakasnin s uplatom?
+Korisnik: Koliko dana kasni smije proći prije nego što dobim opomenu?
+Korisnik: Mogu li promijeniti datum dospijeća rate?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 2 — Osiguranje vozila (FAQ)
+--------------------------------------------------------------------------------
+
+Korisnik: Moram li imati kasko osiguranje za cijelo trajanje leasinga?
+Korisnik: Što ako mi kasko istekne usred ugovora?
+Korisnik: Koga trebam obavijestiti o tome?
+Korisnik: Koji su rokovi za dostavu police osiguranja?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 3 — Prijevremena otplata (PROCEDURE)
+--------------------------------------------------------------------------------
+
+Korisnik: Kako mogu prijevremeno otplatiti leasing ugovor?
+Korisnik: Koliko dana unaprijed moram podnijeti zahtjev?
+Korisnik: Kako se izračunava naknada za prijevremenu otplatu?
+Korisnik: Mogu li to napraviti online ili moram doći osobno?
+Korisnik: Koliko traje cijeli postupak?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 4 — Aktivacija ugovora (PROCEDURE)
+--------------------------------------------------------------------------------
+
+Korisnik: Koji su koraci za aktivaciju novog leasing ugovora?
+Korisnik: Koji dokumenti su potrebni?
+Korisnik: Što ako osiguranje još nije potvrđeno od strane osiguravatelja?
+Korisnik: Tko odobrava posljednji korak aktivacije?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 5 — EURIBOR i kamatna stopa (CONTRACT CONCEPT)
+--------------------------------------------------------------------------------
+
+Korisnik: Što je EURIBOR i kako utječe na moju leasingovu ratu?
+Korisnik: Znači li to da mi se rata može promijeniti?
+Korisnik: Što je kamatna marža?
+Korisnik: Je li kamatna marža fiksna ili se mijenja?
+Korisnik: Kako se izračunava ukupna kamatna stopa?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 6 — Plan otplate i anuitet (CONTRACT CONCEPT)
+--------------------------------------------------------------------------------
+
+Korisnik: Što prikazuje plan otplate?
+Korisnik: Kako je glavnica raspoređena kroz rate?
+Korisnik: Koja je razlika između anuiteta i glavnice?
+Korisnik: Što je ostatak vrijednosti u leasingu?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 7 — Izmjena ugovora (PROCEDURE)
+--------------------------------------------------------------------------------
+
+Korisnik: Mogu li promijeniti uvjete svog leasinga usred trajanja ugovora?
+Korisnik: Koje vrste izmjena su moguće?
+Korisnik: Kako se podnosi zahtjev za izmjenu?
+Korisnik: Koliko dugo traje odobrenje?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 8 — Korisnički portal (PRODUCT DOC)
+--------------------------------------------------------------------------------
+
+Korisnik: Što sve mogu napraviti putem korisničkog portala?
+Korisnik: Mogu li preuzeti kopiju ugovora s portala?
+Korisnik: Kako se registriram na portal?
+Korisnik: Postoji li mobilna verzija portala?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 9 — Upit o konkretnom ugovoru (CRM CASE)
+--------------------------------------------------------------------------------
+
+Korisnik: Imam pitanje vezano uz moj ugovor UG-2024-00042.
+Korisnik: Koji je iznos sljedeće rate?
+Korisnik: Je li zadnja uplata evidentirana?
+Korisnik: Koliko rata mi još preostaje?
+
+
+--------------------------------------------------------------------------------
+RAZGOVOR 10 — Kopija ugovora i dokumentacija (FAQ)
+--------------------------------------------------------------------------------
+
+Korisnik: Kako mogu dobiti kopiju svog leasing ugovora?
+Korisnik: Mogu li to zatražiti emailom?
+Korisnik: Koliko dugo traje dostava?
+Korisnik: Naplaćuje li se kopija ugovora?
+
+================================================================================

@@ -41,6 +41,7 @@ logging.basicConfig(
 logging.getLogger().addHandler(logging.StreamHandler(sys.stderr))
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +61,27 @@ def _print_history(pipeline: ChatbotPipeline) -> None:
     for msg in history:
         role = "You      " if msg["role"] == "user" else "Assistant"
         print(f"  {role}: {msg['content']}")
+
+
+def _print_chunks(pipeline: ChatbotPipeline) -> None:
+    chunks = pipeline.last_chunks
+    intent = pipeline.last_intent
+    rewritten = pipeline.last_rewritten
+    print(f"\n  Intent   : {intent}")
+    print(f"  Query    : {rewritten}")
+    if not chunks:
+        print("  Chunks   : (none retrieved)")
+        return
+    print(f"  Chunks   : {len(chunks)} retrieved")
+    for i, chunk in enumerate(chunks, 1):
+        source = chunk.get("source", "?")
+        doc_type = chunk.get("doc_type", "?")
+        title = chunk.get("title", "?")
+        similarity = chunk.get("similarity")
+        sim_str = f"  sim={similarity:.3f}" if similarity is not None else "  (direct lookup)"
+        print(f"\n  [{i}] {title}  ({doc_type}, {source}{sim_str})")
+        preview = chunk.get("chunk_text", "")[:200].replace("\n", " ")
+        print(f"      {preview}{'…' if len(chunk.get('chunk_text','')) > 200 else ''}")
 
 
 def _print_state(pipeline: ChatbotPipeline) -> None:
@@ -124,7 +146,18 @@ def main() -> None:
             log.info("USER: %s", user_input)
 
             answer = pipeline.process(user_input)
-            print(f"\nAssistant: {answer}\n")
+            print(f"\nAssistant: {answer}")
+
+            print("\n── Retrieved Chunks ─────────────────────────────────────")
+            _print_chunks(pipeline)
+
+            print("\n── Conversation History ──────────────────────────────────")
+            _print_history(pipeline)
+
+            print("\n── Conversation Summary ──────────────────────────────────")
+            summary = pipeline.memory.summary
+            print(f"  {summary}" if summary else "  (not yet generated — updates every 3 turns)")
+            print("─────────────────────────────────────────────────────────\n")
 
             log.info("ASSISTANT: %s", answer)
 
