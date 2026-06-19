@@ -33,8 +33,17 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    genai = None
+    genai_types = None
+
+try:
+    import anthropic as anthropic_sdk
+except ImportError:
+    anthropic_sdk = None
 
 # Paths
 BASE_DIR = Path(__file__).parent
@@ -43,7 +52,11 @@ USER_PROMPTS_DIR = BASE_DIR / "user_prompts"
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+# Provider selection — set LLM_PROVIDER=gemini (default) or LLM_PROVIDER=claude
+PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+GEMINI_MODEL = "gemini-2.5-flash-lite"
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5")
+MODEL_NAME = CLAUDE_MODEL if PROVIDER == "claude" else GEMINI_MODEL
 
 # Logging
 log_file = LOG_DIR / f"demo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
@@ -91,21 +104,30 @@ def load_user_prompts(prefix: str) -> list[str]:
     return prompts
 
 
-# API call 
+# API call
 
-def call_gemini(client: genai.Client, system_prompt: str, user_prompt: str) -> str:
-    config = types.GenerateContentConfig(system_instruction=system_prompt)
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=user_prompt,
-        config=config,
-    )
-    return getattr(response, "text", None) or "<empty response>"
+def call_llm(client, system_prompt: str, user_prompt: str) -> str:
+    if PROVIDER == "claude":
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        return response.content[0].text if response.content else "<empty response>"
+    else:
+        config = genai_types.GenerateContentConfig(system_instruction=system_prompt)
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_prompt,
+            config=config,
+        )
+        return getattr(response, "text", None) or "<empty response>"
 
 
-# Domain runner 
+# Domain runner
 
-def run_domain(client: genai.Client, prefix: str) -> None:
+def run_domain(client, prefix: str) -> None:
     domain_title = prefix.upper()
     system_prompts = load_system_prompts(prefix)
     user_prompts = load_user_prompts(prefix)
@@ -136,7 +158,7 @@ def run_domain(client: genai.Client, prefix: str) -> None:
             log.info(f"  >> USER PROMPT [{i}/{len(user_prompts)}] : {user_prompt}")
             log.info("-" * 35)
 
-            output = call_gemini(client, sys_content, user_prompt)
+            output = call_llm(client, sys_content, user_prompt)
 
             log.info("  << RESPONSE :")
             for line in output.splitlines():
@@ -146,16 +168,25 @@ def run_domain(client: genai.Client, prefix: str) -> None:
         log.info("")
 
 
-# Entry point 
+# Entry point
 
 def main() -> None:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "GEMINI_API_KEY is not set. Please export it before running."
-        )
-    client = genai.Client(api_key=api_key)
+    if PROVIDER == "claude":
+        if anthropic_sdk is None:
+            raise ImportError("Install the Anthropic SDK: pip install anthropic")
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Please export it before running.")
+        client = anthropic_sdk.Anthropic(api_key=api_key)
+    else:
+        if genai is None:
+            raise ImportError("Install the Google Gen AI SDK: pip install google-genai")
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise EnvironmentError("GEMINI_API_KEY is not set. Please export it before running.")
+        client = genai.Client(api_key=api_key)
 
+    log.info(f"Provider : {PROVIDER.upper()}")
     log.info(f"Model    : {MODEL_NAME}")
     log.info(f"Log file : {log_file}\n")
 

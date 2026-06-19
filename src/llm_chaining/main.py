@@ -29,8 +29,17 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    genai = None
+    genai_types = None
+
+try:
+    import anthropic as anthropic_sdk
+except ImportError:
+    anthropic_sdk = None
 
 # Paths
 BASE_DIR = Path(__file__).parent
@@ -39,7 +48,11 @@ USER_PROMPTS_DIR = BASE_DIR / "user_prompts"
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+# Provider selection — set LLM_PROVIDER=gemini (default) or LLM_PROVIDER=claude
+PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+GEMINI_MODEL = "gemini-2.5-flash-lite"
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5")
+MODEL_NAME = CLAUDE_MODEL if PROVIDER == "claude" else GEMINI_MODEL
 
 INTENT_CLASSIFIER_PROMPT = SYSTEM_PROMPTS_DIR / "intent_classifier.txt"
 SPECIALIZED_PROMPTS: dict[str, Path] = {
@@ -78,31 +91,41 @@ def load_user_prompts() -> list[str]:
     return prompts
 
 
-# Gemini call
+# LLM call
 
-def call_gemini(client: genai.Client, system_prompt: str, user_message: str) -> str:
-    config = types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        temperature=0.2,
-    )
-    response = client.models.generate_content(
-        model=MODEL_NAME,
-        contents=user_message,
-        config=config,
-    )
-    return getattr(response, "text", None) or "<empty response>"
+def call_llm(client, system_prompt: str, user_message: str) -> str:
+    if PROVIDER == "claude":
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1024,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+            temperature=0.2,
+        )
+        return response.content[0].text if response.content else "<empty response>"
+    else:
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=0.2,
+        )
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user_message,
+            config=config,
+        )
+        return getattr(response, "text", None) or "<empty response>"
 
 
 # LLM 1: Intent classifier
 
-def classify_intent(client: genai.Client, user_message: str) -> tuple[str, float, str]:
+def classify_intent(client, user_message: str) -> tuple[str, float, str]:
     """
     Call the intent classifier LLM.
     Returns (intent, confidence, reasoning).
     Falls back to ("unknown", 0.0, raw_response) on parse error.
     """
     system_prompt = load_text(INTENT_CLASSIFIER_PROMPT)
-    raw = call_gemini(client, system_prompt, user_message)
+    raw = call_llm(client, system_prompt, user_message)
 
     # Strip optional markdown code fences the model sometimes adds
     clean = raw.strip()
@@ -131,14 +154,14 @@ def route(intent: str) -> Path | None:
 
 # LLM 2: Specialized handlers
 
-def handle_update_contact_info(client: genai.Client, user_message: str) -> dict:
+def handle_update_contact_info(client, user_message: str) -> dict:
     """
     Returns a dict with two keys:
       db_payload  – the structured JSON for the database update
       user_answer – the confirmation message shown to the user
     """
     system_prompt = load_text(SPECIALIZED_PROMPTS["update_contact_info"])
-    raw = call_gemini(client, system_prompt, user_message)
+    raw = call_llm(client, system_prompt, user_message)
 
     clean = raw.strip()
     if clean.startswith("```"):
@@ -156,14 +179,14 @@ def handle_update_contact_info(client: genai.Client, user_message: str) -> dict:
         return {"db_payload": None, "user_answer": raw}
 
 
-def handle_plain_answer(client: genai.Client, intent: str, user_message: str) -> str:
+def handle_plain_answer(client, intent: str, user_message: str) -> str:
     system_prompt = load_text(SPECIALIZED_PROMPTS[intent])
-    return call_gemini(client, system_prompt, user_message)
+    return call_llm(client, system_prompt, user_message)
 
 
 #  Pipeline orchestrator 
 
-def run_pipeline(client: genai.Client, user_message: str) -> None:
+def run_pipeline(client, user_message: str) -> None:
     sep = "=" * 70
     log.info(sep)
     log.info(f"  USER MESSAGE : {user_message}")
@@ -206,15 +229,24 @@ def run_pipeline(client: genai.Client, user_message: str) -> None:
 
 
 # Entry point
-#  
-def main() -> None:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "GEMINI_API_KEY is not set. Please export it before running."
-        )
-    client = genai.Client(api_key=api_key)
 
+def main() -> None:
+    if PROVIDER == "claude":
+        if anthropic_sdk is None:
+            raise ImportError("Install the Anthropic SDK: pip install anthropic")
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Please export it before running.")
+        client = anthropic_sdk.Anthropic(api_key=api_key)
+    else:
+        if genai is None:
+            raise ImportError("Install the Google Gen AI SDK: pip install google-genai")
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise EnvironmentError("GEMINI_API_KEY is not set. Please export it before running.")
+        client = genai.Client(api_key=api_key)
+
+    log.info(f"Provider : {PROVIDER.upper()}")
     log.info(f"Model    : {MODEL_NAME}")
     log.info(f"Log file : {log_file}\n")
 
