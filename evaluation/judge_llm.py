@@ -1,7 +1,7 @@
 """
 judge_llm.py — LLM-as-a-judge for evaluating leasing Q&A answers.
 
-Uses Gemini to score each answer against the rubric criteria defined in rubric.json.
+Uses Gemini or Claude to score each answer against the rubric criteria defined in rubric.json.
 """
 
 from __future__ import annotations
@@ -10,8 +10,20 @@ import json
 import os
 from typing import Any
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    genai = None
+    genai_types = None
+
+try:
+    import anthropic as anthropic_sdk
+except ImportError:
+    anthropic_sdk = None
+
+# Get provider setting
+PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
 _JUDGE_SYSTEM_PROMPT_TEMPLATE = """You are an expert evaluator for a leasing customer support system.
 
@@ -96,7 +108,7 @@ def build_judge_system_prompt(policy: str) -> str:
 
 
 def judge_answer(
-    client: genai.Client,
+    client,
     model: str,
     question: str,
     answer: str,
@@ -104,18 +116,32 @@ def judge_answer(
     policy: str,
     temperature: float = 0.1,
 ) -> dict[str, Any]:
-    config = types.GenerateContentConfig(
-        system_instruction=build_judge_system_prompt(policy),
-        temperature=temperature,
-        max_output_tokens=512,
-    )
-    prompt = build_judge_prompt(question, answer, expected_topics)
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=config,
-    )
-    raw = getattr(response, "text", None) or ""
+    """Call judge LLM (Gemini or Claude) to evaluate an answer."""
+    system_prompt = build_judge_system_prompt(policy)
+    user_prompt = build_judge_prompt(question, answer, expected_topics)
+
+    if PROVIDER == "claude":
+        response = client.messages.create(
+            model=model,
+            max_tokens=512,
+            temperature=temperature,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = response.content[0].text if response.content else ""
+    else:
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=temperature,
+            max_output_tokens=512,
+        )
+        response = client.models.generate_content(
+            model=model,
+            contents=user_prompt,
+            config=config,
+        )
+        raw = getattr(response, "text", None) or ""
+
     return _parse_judge_response(raw)
 
 

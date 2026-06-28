@@ -1,5 +1,7 @@
 # LLM Evaluation Workshop
 
+> **Providers supported:** Gemini and Claude. Switch between them with the `LLM_PROVIDER` environment variable.
+
 ## The Big Idea
 
 The core problem with evaluating LLMs is that you can't simply check *"right or wrong"* the way you do with classical ML.
@@ -196,7 +198,7 @@ Pure functions that compute evaluation statistics.
 
 Implements the **LLM-as-a-judge** pattern.
 
-Instead of manual grading, a second Gemini call evaluates responses.
+Instead of manual grading, a second LLM call (Gemini or Claude, matching the main provider) evaluates responses.
 
 ### Evaluation criteria
 
@@ -234,22 +236,80 @@ This ensures parsing failures remain visible in results.
 
 ---
 
-## evaluation/run_gemini.py
+## evaluation/main.py
 
 Main orchestration script.
 
-Example usage:
+### Setup
+
+**1 — Install dependencies**
+
+```bash
+# For Gemini
+pip install google-genai pyyaml
+
+# For Claude
+pip install anthropic pyyaml
+```
+
+**2 — Create a `.env` file**
+
+Create a file named `.env` in the project root:
 
 ```
-python evaluation/run_gemini.py--task intent_classification--prompt good
+# Gemini
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Claude (only needed if using LLM_PROVIDER=claude)
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ```
+
+Load it before running:
+
+```bash
+source .env && export $(cut -d= -f1 .env)
+```
+
+Or export the key you need directly:
+
+```bash
+export GEMINI_API_KEY=your_key_here
+# or
+export ANTHROPIC_API_KEY=your_key_here
+```
+
+### Usage
+
+**With Gemini (default):**
+
+```bash
+python evaluation/main.py --task intent_classification --prompt good
+python evaluation/main.py --task leasing_qa --prompt good
+```
+
+**With Claude:**
+
+```bash
+LLM_PROVIDER=claude python evaluation/main.py --task intent_classification --prompt good
+LLM_PROVIDER=claude python evaluation/main.py --task leasing_qa --prompt good
+```
+
+**With a specific Claude model:**
+
+```bash
+LLM_PROVIDER=claude CLAUDE_MODEL=claude-sonnet-4-6 python evaluation/main.py --task leasing_qa --prompt good
+```
+
+Models used:
+- Gemini: `gemini-2.5-flash-lite` (hardcoded)
+- Claude: `claude-haiku-4-5` (default, override with `CLAUDE_MODEL` env var)
 
 ---
 
 ### Intent classification flow
 
 1. Load dataset, prompt, rubric
-2. Call Gemini for each example
+2. Call LLM (Gemini or Claude) for each example
 3. Parse JSON response
 4. Compare predicted intent to expected intent
 5. Print per-example results
@@ -261,8 +321,8 @@ python evaluation/run_gemini.py--task intent_classification--prompt good
 ### Leasing QA flow
 
 1. Load dataset and prompt
-2. Generate answer with Gemini
-3. Send answer to judge LLM
+2. Generate answer with LLM (Gemini or Claude)
+3. Send answer to judge LLM (same provider)
 4. Collect scores
 5. Flag hallucinations with ⚠
 6. Save results to `/results`
@@ -322,9 +382,14 @@ ChatGPT → dataset.json
 
 Run evaluation:
 
-```
-python evaluation/run_gemini.py--task intent_classification--prompt bad
-python evaluation/run_gemini.py--task intent_classification--prompt good
+```bash
+# With Gemini
+python evaluation/main.py --task intent_classification --prompt bad
+python evaluation/main.py --task intent_classification --prompt good
+
+# Or with Claude
+LLM_PROVIDER=claude python evaluation/main.py --task intent_classification --prompt bad
+LLM_PROVIDER=claude python evaluation/main.py --task intent_classification --prompt good
 ```
 
 Observe:
@@ -345,9 +410,14 @@ Participants generate adversarial questions.
 
 Run evaluation:
 
-```
-python evaluation/run_gemini.py --task leasing_qa --prompt bad
-python evaluation/run_gemini.py --task leasing_qa --prompt good
+```bash
+# With Gemini
+python evaluation/main.py --task leasing_qa --prompt bad
+python evaluation/main.py --task leasing_qa --prompt good
+
+# Or with Claude
+LLM_PROVIDER=claude python evaluation/main.py --task leasing_qa --prompt bad
+LLM_PROVIDER=claude python evaluation/main.py --task leasing_qa --prompt good
 ```
 
 Observe:

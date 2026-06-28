@@ -29,7 +29,8 @@ def load_results(task_filter: str | None = None) -> list[dict]:
         return runs
     for path in sorted(RESULTS_DIR.glob("*.json")):
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
+                print(path.name)
                 data = json.load(f)
             if task_filter and data.get("task") != task_filter:
                 continue
@@ -185,10 +186,10 @@ def dashboard(runs: list[dict], n_failures: int) -> None:
         print()
         print("  No results found.")
         print("  Run the evaluation first:")
-        print("    python evaluation/run_gemini.py --task intent_classification --prompt good")
-        print("    python evaluation/run_gemini.py --task intent_classification --prompt bad")
-        print("    python evaluation/run_gemini.py --task leasing_qa --prompt good")
-        print("    python evaluation/run_gemini.py --task leasing_qa --prompt bad")
+        print("    python evaluation/main.py --task intent_classification --prompt good")
+        print("    python evaluation/main.py --task intent_classification --prompt bad")
+        print("    python evaluation/main.py --task leasing_qa --prompt good")
+        print("    python evaluation/main.py --task leasing_qa --prompt bad")
         print()
         return
 

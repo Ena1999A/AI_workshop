@@ -1,14 +1,23 @@
 """
-run_gemini.py — Main evaluation runner for the LLM evaluation workshop.
+main.py — Main evaluation runner for the LLM evaluation workshop.
 
 Usage:
-    python evaluation/run_gemini.py --task intent_classification --prompt good
-    python evaluation/run_gemini.py --task leasing_qa --prompt good
-    python evaluation/run_gemini.py --task intent_classification --prompt bad
+    # With Gemini (default)
+    python evaluation/main.py --task intent_classification --prompt good
+    python evaluation/main.py --task leasing_qa --prompt good
+
+    # With Claude
+    LLM_PROVIDER=claude python evaluation/main.py --task intent_classification --prompt good
+    LLM_PROVIDER=claude python evaluation/main.py --task leasing_qa --prompt good
 
 Setup:
+    # For Gemini
     pip install google-genai pyyaml
     export GEMINI_API_KEY="your_api_key_here"
+
+    # For Claude
+    pip install anthropic pyyaml
+    export ANTHROPIC_API_KEY="your_api_key_here"
 """
 
 from __future__ import annotations
@@ -23,8 +32,18 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
-from google import genai
-from google.genai import types
+
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:
+    genai = None
+    genai_types = None
+
+try:
+    import anthropic as anthropic_sdk
+except ImportError:
+    anthropic_sdk = None
 
 # Add project root so sibling imports work when called from any directory
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -35,6 +54,12 @@ from evaluation import metrics as m
 
 LOG_DIR = PROJECT_ROOT / "evaluation" / "logs"
 LOG_DIR.mkdir(exist_ok=True)
+
+# Provider selection — set LLM_PROVIDER=gemini (default) or LLM_PROVIDER=claude
+PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+GEMINI_MODEL = "gemini-2.5-flash-lite"
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5")
+MODEL_NAME = CLAUDE_MODEL if PROVIDER == "claude" else GEMINI_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -73,36 +98,57 @@ def load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def build_client(api_key: str) -> genai.Client:
-    return genai.Client(api_key=api_key)
+def build_client(api_key: str):
+    """Build API client for the selected provider."""
+    if PROVIDER == "claude":
+        if anthropic_sdk is None:
+            raise ImportError("Install the Anthropic SDK: pip install anthropic")
+        return anthropic_sdk.Anthropic(api_key=api_key)
+    else:
+        if genai is None:
+            raise ImportError("Install the Google Gen AI SDK: pip install google-genai")
+        return genai.Client(api_key=api_key)
 
 
-def call_gemini(
-    client: genai.Client,
+def call_llm(
+    client,
     model: str,
     system_prompt: str,
     user_message: str,
     temperature: float,
     max_output_tokens: int,
 ) -> str:
+    """Call LLM API (Gemini or Claude) based on PROVIDER setting."""
     log.debug("  [API CALL]")
+    log.debug(f"  provider    : {PROVIDER}")
     log.debug(f"  model       : {model}")
     log.debug(f"  temperature : {temperature}")
     log.debug(f"  max_tokens  : {max_output_tokens}")
     log.debug(f"  system_prompt (first 120 chars): {system_prompt[:120].replace(chr(10), ' ')!r}")
     log.debug(f"  user_message: {user_message!r}")
 
-    config = types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        temperature=temperature,
-        max_output_tokens=max_output_tokens,
-    )
-    response = client.models.generate_content(
-        model=model,
-        contents=user_message,
-        config=config,
-    )
-    raw = getattr(response, "text", None) or ""
+    if PROVIDER == "claude":
+        response = client.messages.create(
+            model=model,
+            max_tokens=max_output_tokens,
+            temperature=temperature,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        raw = response.content[0].text if response.content else ""
+    else:
+        config = genai_types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens,
+        )
+        response = client.models.generate_content(
+            model=model,
+            contents=user_message,
+            config=config,
+        )
+        raw = getattr(response, "text", None) or ""
+
     log.debug(f"  raw_response: {raw!r}")
     return raw
 
@@ -138,7 +184,7 @@ def parse_intent_response(raw: str) -> dict:
 
 
 def run_intent_classification(
-    client: genai.Client,
+    client,
     cfg: dict,
     task_cfg: dict,
     system_prompt: str,
@@ -152,7 +198,7 @@ def run_intent_classification(
     log.info(f"Task       : intent_classification")
     log.info(f"Prompt     : {prompt_label}")
     log.info(f"Examples   : {len(dataset)}")
-    log.info(f"Model      : {cfg['model']}")
+    log.info(f"Model      : {MODEL_NAME}")
     log.info(f"{'='*60}\n")
     log.debug("SYSTEM PROMPT:\n" + "-" * 40)
     log.debug(system_prompt)
@@ -162,9 +208,9 @@ def run_intent_classification(
     for i, example in enumerate(dataset, 1):
         log.info(f"[{i:02d}/{len(dataset)}] {example['text'][:60]}...")
         t0 = time.time()
-        raw = call_gemini(
+        raw = call_llm(
             client,
-            cfg["model"],
+            MODEL_NAME,
             system_prompt,
             example["text"],
             cfg["temperature"],
@@ -196,7 +242,7 @@ def run_intent_classification(
     result = {
         "task": "intent_classification",
         "prompt": prompt_label,
-        "model": cfg["model"],
+        "model": MODEL_NAME,
         "timestamp": datetime.now().isoformat(),
         "summary": summary,
         "examples": responses,
@@ -206,7 +252,7 @@ def run_intent_classification(
 
 
 def run_leasing_qa(
-    client: genai.Client,
+    client,
     cfg: dict,
     task_cfg: dict,
     system_prompt: str,
@@ -220,7 +266,7 @@ def run_leasing_qa(
     log.info(f"Task       : leasing_qa")
     log.info(f"Prompt     : {prompt_label}")
     log.info(f"Examples   : {len(dataset)}")
-    log.info(f"Model      : {cfg['model']}")
+    log.info(f"Model      : {MODEL_NAME}")
     log.info(f"{'='*60}\n")
     log.debug("SYSTEM PROMPT:\n" + "-" * 40)
     log.debug(system_prompt)
@@ -230,7 +276,7 @@ def run_leasing_qa(
     log.debug("-" * 40 + "\n")
 
     judge_cfg = cfg.get("judge", {})
-    judge_model = judge_cfg.get("model", cfg["model"])
+    judge_model = MODEL_NAME  # Use same model as main evaluation
     judge_temp = judge_cfg.get("temperature", 0.1)
 
     examples_output = []
@@ -240,9 +286,9 @@ def run_leasing_qa(
         log.info(f"[{i:02d}/{len(dataset)}] {example['question'][:60]}...")
 
         t0 = time.time()
-        answer = call_gemini(
+        answer = call_llm(
             client,
-            cfg["model"],
+            MODEL_NAME,
             system_prompt,
             example["question"],
             cfg["temperature"],
@@ -288,7 +334,7 @@ def run_leasing_qa(
     result = {
         "task": "leasing_qa",
         "prompt": prompt_label,
-        "model": cfg["model"],
+        "model": MODEL_NAME,
         "timestamp": datetime.now().isoformat(),
         "summary": summary,
         "examples": examples_output,
@@ -393,15 +439,23 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY is not set.")
+    # Get API key based on provider
+    if PROVIDER == "claude":
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise EnvironmentError("ANTHROPIC_API_KEY is not set. Please export it before running.")
+    else:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise EnvironmentError("GEMINI_API_KEY is not set. Please export it before running.")
 
     cfg = load_config(Path(args.config))
     task_cfg = cfg["tasks"][args.task]
     results_dir = PROJECT_ROOT / cfg.get("results_dir", "results")
 
     log_file = setup_logging(args.task, args.prompt)
+    log.info(f"Provider   : {PROVIDER.upper()}")
+    log.info(f"Model      : {MODEL_NAME}")
     log.info(f"Log file   : {log_file}")
 
     prompt_path = resolve_prompt_path(args.prompt, args.task, task_cfg)

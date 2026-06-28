@@ -8,7 +8,7 @@ A workshop-friendly script that:
 
 Setup:
     pip install google-genai
-    export GOOGLE_API_KEY="your_api_key_here"
+    export GEMINI_API_KEY="your_api_key_here"
 
 Run:
     python api_config_demo.py

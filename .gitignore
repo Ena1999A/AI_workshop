@@ -4,3 +4,5 @@ pii_data/
 **/__pycache__/
 **/logs/
 *.pyc
+.idea
+/results
