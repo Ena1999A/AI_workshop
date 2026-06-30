@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrieve and Rerank — RAG explainer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --surface-0: #f1efe8;
+    --surface-1: #f7f6f3;
+    --surface-2: #ffffff;
+    --border: rgba(0,0,0,0.1);
+    --border-strong: rgba(0,0,0,0.18);
+    --border-accent: #378add;
+    --text-primary: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-muted: #888780;
+    --text-accent: #185fa5;
+    --bg-accent: #e6f1fb;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', monospace;
+    --radius: 8px;
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface-0);
+    color: var(--text-primary);
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 24px; }
+  .q-box { border: 0.5px solid var(--border-accent); border-radius: 10px; padding: 10px 14px; background: var(--bg-accent); margin-bottom: 14px; }
+  .q-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; color: var(--text-accent); margin-bottom: 4px; }
+  .q-text { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .chips-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+  .chips-label { font-size: 12px; color: var(--text-secondary); }
+  .q-chip { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; transition: all .15s; font-family: var(--font-sans); }
+  .q-chip:hover { border-color: var(--border-strong); }
+  .cols { display: grid; grid-template-columns: minmax(0,1fr) 40px minmax(0,1fr) 40px minmax(0,1fr); gap: 0; align-items: start; margin-bottom: 14px; }
+  .col-box { border: 0.5px solid var(--border); border-radius: 12px; padding: 14px 12px; background: var(--surface-1); }
+  .stage-head { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; margin: 0 0 10px; }
+  .chunk { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 0.5px solid var(--border); background: var(--surface-2); margin-bottom: 6px; transition: opacity .35s, border-color .35s; }
+  .chunk.dim { opacity: .22; }
+  .chunk.highlight { border-color: var(--border-accent); }
+  .chunk-name { flex: 1; font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .score-pill { font-size: 11px; font-family: var(--font-mono); font-weight: 500; padding: 2px 7px; border-radius: 12px; flex-shrink: 0; }
+  .bar-wrap { width: 60px; height: 5px; border-radius: 3px; background: var(--surface-0); flex-shrink: 0; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .rank-dot { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 500; flex-shrink: 0; }
+  .arrow-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0 4px; padding-top: 40px; }
+  .arrow-label { font-size: 10px; color: var(--text-muted); text-align: center; white-space: nowrap; line-height: 1.4; }
+  .swap-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #EEEDFE; color: #3C3489; margin-left: 6px; font-weight: 500; }
+  .insight-box { padding: 10px 14px; border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface-1); font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+  .llm-badge { margin-top: 8px; padding: 8px; border-radius: 6px; background: #EEEDFE; font-size: 11px; color: #534AB7; }
+  @media (max-width: 640px) {
+    .cols { grid-template-columns: 1fr; }
+    .arrow-col { flex-direction: row; padding: 8px 0; padding-top: 0; }
+    .arrow-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Retrieve and rerank</h1>
+<p class="subtitle">Switch queries to see how retrieval and reranking differ — and when the reranker catches mistakes.</p>
+
+<div class="q-box">
+  <div class="q-label">Query</div>
+  <div class="q-text" id="q-display"></div>
+</div>
+
+<div class="chips-row">
+  <span class="chips-label">Try a different query:</span>
+  <div id="q-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+</div>
+
+<div class="cols" id="cols-root"></div>
+
+<div class="insight-box" id="insight-box"></div>
+
+<script>
+const QUERIES = [
+  {
+    label: 'Refund on download',
+    text: '"Can I get a refund on my digital download?"',
+    chunks: [
+      { name:'digital-terms.pdf · p1', vec:0.91, rerank:0.97 },
+      { name:'support-faq.md · s4',    vec:0.88, rerank:0.41 },
+      { name:'refund-policy.pdf · p3', vec:0.86, rerank:0.94 },
+      { name:'digital-terms.pdf · p2', vec:0.83, rerank:0.29 },
+      { name:'faq.md · s5',            vec:0.81, rerank:0.72 },
+    ],
+    insight: 'Reranking caught a big mismatch: support-faq.md · s4 looked similar by vector (0.88) but scored only 0.41 on true relevance. refund-policy.pdf · p3 jumped from #3 to #2.',
+  },
+  {
+    label: 'Return shipping',
+    text: '"How do I return a physical item?"',
+    chunks: [
+      { name:'returns-guide.pdf · p1', vec:0.93, rerank:0.96 },
+      { name:'returns-guide.pdf · p2', vec:0.89, rerank:0.88 },
+      { name:'faq.md · s2',            vec:0.84, rerank:0.74 },
+      { name:'refund-policy.pdf · p1', vec:0.79, rerank:0.31 },
+      { name:'support-faq.md · s1',    vec:0.76, rerank:0.19 },
+    ],
+    insight: 'Here retrieval and reranking mostly agree — the top 2 stay the same. But refund-policy.pdf · p1 (about digital refunds) slips hard from #4 to effectively irrelevant at 0.31.',
+  },
+  {
+    label: 'Processing time',
+    text: '"How long does a refund take to process?"',
+    chunks: [
+      { name:'faq.md · s5',            vec:0.90, rerank:0.95 },
+      { name:'support-faq.md · s4',    vec:0.87, rerank:0.88 },
+      { name:'refund-policy.pdf · p3', vec:0.83, rerank:0.61 },
+      { name:'digital-terms.pdf · p1', vec:0.80, rerank:0.22 },
+      { name:'returns-guide.pdf · p2', vec:0.77, rerank:0.15 },
+    ],
+    insight: 'Top 2 are stable. digital-terms.pdf · p1 and returns-guide.pdf · p2 both collapse to near-zero — they\'re about what gets refunded, not how long it takes. The reranker catches that distinction.',
+  },
+];
+
+const TEAL = { bg:'#E1F5EE', border:'#1D9E75', text:'#085041', bar:'#1D9E75' };
+const PURP = { bg:'#EEEDFE', border:'#7F77DD', text:'#3C3489', bar:'#7F77DD' };
+
+function reranked(chunks) {
+  return [...chunks].sort((a,b) => b.rerank - a.rerank);
+}
+
+function makeChunk(c, rank, scoreVal, scheme, dim, showSwap) {
+  const pct = Math.round(scoreVal * 100);
+  return `<div class="chunk${dim?' dim':''}${!dim&&rank<=2?' highlight':''}">
+    <div class="rank-dot" style="background:${scheme.bg};color:${scheme.text}">${rank}</div>
+    <div class="chunk-name" title="${c.name}">${c.name}${showSwap?'<span class="swap-badge">moved</span>':''}</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${scheme.bar}"></div></div>
+    <span class="score-pill" style="background:${scheme.bg};color:${scheme.text}">${scoreVal.toFixed(2)}</span>
+  </div>`;
+}
+
+const ALL_NAMES = [
+  'digital-terms.pdf · p1','support-faq.md · s4','refund-policy.pdf · p3',
+  'digital-terms.pdf · p2','faq.md · s5','returns-guide.pdf · p1',
+  'returns-guide.pdf · p2','refund-policy.pdf · p1','faq.md · s2','support-faq.md · s1'
+];
+
+function render(idx) {
+  const q = QUERIES[idx];
+  document.getElementById('q-display').textContent = q.text;
+
+  const rr = reranked(q.chunks);
+  const retrieved = new Set(q.chunks.map(c=>c.name));
+
+  const swapped = new Set();
+  q.chunks.forEach((c,vi) => {
+    const ri = rr.findIndex(r=>r.name===c.name);
+    if (vi !== ri) swapped.add(c.name);
+  });
+
+  let dbHTML = '';
+  ALL_NAMES.forEach(name => {
+    const isRet = retrieved.has(name);
+    dbHTML += `<div class="chunk${isRet?'':' dim'}" style="${isRet?'border-color:#1D9E75;background:#E1F5EE':''}">
+      <div class="chunk-name" style="${isRet?'color:#085041':''}" title="${name}">${name}</div>
+      ${isRet?'<span style="font-size:10px;color:#0F6E56;flex-shrink:0">retrieved</span>':''}
+    </div>`;
+  });
+
+  let vecHTML = '';
+  q.chunks.forEach((c,i) => {
+    vecHTML += makeChunk(c, i+1, c.vec, TEAL, i>=3, swapped.has(c.name) && i>=2);
+  });
+
+  let rrHTML = '';
+  rr.forEach((c,i) => {
+    rrHTML += makeChunk(c, i+1, c.rerank, PURP, i>=3, swapped.has(c.name) && i<2);
+  });
+
+  document.getElementById('cols-root').innerHTML = `
+    <div class="col-box">
+      <div class="stage-head" style="color:#444441">Vector DB <span style="font-weight:400;font-size:10px;color:var(--text-muted)">${ALL_NAMES.length} chunks</span></div>
+      ${dbHTML}
+    </div>
+    <div class="arrow-col">
+      <div style="font-size:20px;color:var(--text-muted)">→</div>
+      <div class="arrow-label">ANN<br>search<br>top 5</div>
+    </div>
+    <div class="col-box">
+      <div class="stage-head" style="color:#0F6E56">After retrieval <span style="font-weight:400;font-size:10px;color:var(--text-muted)">cosine sim</span></div>
+      ${vecHTML}
+    </div>
+    <div class="arrow-col">
+      <div style="font-size:20px;color:var(--text-muted)">→</div>
+      <div class="arrow-label">cross-<br>encoder<br>rerank</div>
+    </div>
+    <div class="col-box">
+      <div class="stage-head" style="color:#534AB7">After reranking <span style="font-weight:400;font-size:10px;color:var(--text-muted)">top 3 to LLM</span></div>
+      ${rrHTML}
+      <div class="llm-badge">Top 3 sent to LLM prompt</div>
+    </div>`;
+
+  document.getElementById('insight-box').innerHTML =
+    `<span style="font-weight:500;color:var(--text-primary)">What happened: </span>${q.insight}`;
+
+  document.querySelectorAll('.q-chip').forEach((c,i) => {
+    c.style.borderColor = i===idx ? 'var(--border-accent)' : 'var(--border)';
+    c.style.color       = i===idx ? 'var(--text-accent)'   : 'var(--text-secondary)';
+    c.style.background  = i===idx ? 'var(--bg-accent)'     : 'transparent';
+  });
+}
+
+const chipsEl = document.getElementById('q-chips');
+QUERIES.forEach((q,i) => {
+  const chip = document.createElement('button');
+  chip.className = 'q-chip';
+  chip.textContent = q.label;
+  chip.addEventListener('click', () => render(i));
+  chipsEl.appendChild(chip);
+});
+
+render(0);
+</script>
+</body>
+</html>

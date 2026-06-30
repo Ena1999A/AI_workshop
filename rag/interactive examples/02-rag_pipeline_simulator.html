@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG pipeline simulator</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --s0:#f1efe8;--s1:#f7f6f2;--s2:#ffffff;
+  --border:rgba(0,0,0,0.09);--border-strong:rgba(0,0,0,0.16);
+  --text-primary:#1a1a18;--text-secondary:#5f5e5a;--text-muted:#9a9890;
+  --teal-bg:#e1f5ee;--teal-mid:#1d9e75;--teal-dark:#085041;--teal-border:#5dcaa5;
+  --purp-bg:#eeedfe;--purp-mid:#7f77dd;--purp-dark:#3c3489;--purp-border:#afa9ec;
+  --coral-bg:#faece7;--coral-mid:#d85a30;--coral-dark:#712b13;
+  --amber-bg:#faeeda;--amber-mid:#ba7517;--amber-dark:#633806;
+  --blue-bg:#e6f1fb;--blue-mid:#378add;--blue-dark:#0c447c;--blue-border:#85b7eb;
+  --gray-bg:#f1efe8;--gray-border:#b4b2a9;--gray-text:#5f5e5a;
+  --radius:8px;
+  --font:system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'Cascadia Code',monospace;
+}
+body{font-family:var(--font);background:var(--s0);color:var(--text-primary);min-height:100vh;padding:24px 16px}
+h1{font-size:20px;font-weight:500;margin-bottom:4px}
+.subtitle{font-size:13px;color:var(--text-secondary);margin-bottom:24px}
+
+/* progress bar */
+.progress{display:flex;gap:0;margin-bottom:28px;border-radius:10px;overflow:hidden;border:0.5px solid var(--border)}
+.prog-step{flex:1;padding:8px 4px;text-align:center;font-size:11px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);background:var(--s2);border-right:0.5px solid var(--border);transition:background .25s,color .25s;cursor:default;user-select:none}
+.prog-step:last-child{border-right:none}
+.prog-step.done{background:var(--teal-bg);color:var(--teal-dark)}
+.prog-step.active{background:var(--teal-mid);color:#fff}
+
+/* cards */
+.card{background:var(--s2);border:0.5px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+
+/* nav */
+.nav{display:flex;gap:10px;margin-top:20px;align-items:center}
+button{font-family:var(--font);font-size:13px;padding:8px 18px;border-radius:var(--radius);border:0.5px solid var(--border-strong);background:transparent;color:var(--text-primary);cursor:pointer;transition:background .15s}
+button:hover{background:var(--s1)}
+button.primary{background:var(--teal-mid);color:#fff;border-color:var(--teal-mid)}
+button.primary:hover{background:var(--teal-dark)}
+button:disabled{opacity:.35;cursor:default}
+.step-hint{font-size:12px;color:var(--text-muted);margin-left:4px}
+
+/* query chips */
+.chip{display:inline-block;padding:5px 12px;border-radius:20px;font-size:12px;border:0.5px solid var(--border);background:var(--s2);color:var(--text-secondary);cursor:pointer;transition:all .15s;margin:3px}
+.chip:hover{border-color:var(--border-strong)}
+.chip.active{background:var(--blue-bg);color:var(--blue-dark);border-color:var(--blue-border)}
+.q-input{width:100%;padding:10px 14px;border-radius:var(--radius);border:0.5px solid var(--border-strong);font-size:14px;font-family:var(--font);color:var(--text-primary);background:var(--s2);margin-top:10px;outline:none}
+.q-input:focus{border-color:var(--teal-mid)}
+
+/* vector viz */
+#vec-canvas{border:0.5px solid var(--border);border-radius:10px;background:#fff;display:block;width:100%}
+
+/* chunk rows */
+.chunk-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border);background:var(--s2);margin-bottom:6px;transition:opacity .3s,border-color .3s,transform .3s}
+.chunk-row.dim{opacity:.2}
+.chunk-row.hi{border-color:var(--teal-border);background:var(--teal-bg)}
+.chunk-row.hi-purp{border-color:var(--purp-border);background:var(--purp-bg)}
+.rank-badge{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0}
+.chunk-name{font-size:12px;font-family:var(--mono);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chunk-snippet{font-size:11px;color:var(--text-muted);flex:2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.score-pill{font-size:11px;font-family:var(--mono);font-weight:500;padding:2px 8px;border-radius:12px;flex-shrink:0}
+.bar-wrap{width:56px;height:5px;border-radius:3px;background:var(--s0);flex-shrink:0;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.moved-badge{font-size:10px;padding:1px 5px;border-radius:4px;background:var(--purp-bg);color:var(--purp-dark);flex-shrink:0}
+
+/* prompt assembly */
+.prompt-block{font-family:var(--mono);font-size:12px;line-height:1.7;border-radius:8px;padding:14px;margin-bottom:8px;border:0.5px solid var(--border)}
+.pb-sys{background:#f8f7ff;border-color:#afa9ec}
+.pb-ctx{background:var(--teal-bg);border-color:var(--teal-border)}
+.pb-q{background:var(--blue-bg);border-color:var(--blue-border)}
+.pb-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;display:block}
+
+/* answer */
+#answer-box{font-size:14px;line-height:1.8;color:var(--text-primary);min-height:60px;padding:16px;background:var(--s2);border:0.5px solid var(--border);border-radius:10px;font-family:Georgia,serif}
+.cursor{display:inline-block;width:2px;height:1em;background:var(--teal-mid);vertical-align:text-bottom;animation:blink .7s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* two-col layout for retrieve+rerank */
+.two-col{display:grid;grid-template-columns:1fr 32px 1fr;gap:0;align-items:start}
+.arrow-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:36px;gap:3px;font-size:18px;color:var(--text-muted)}
+.arrow-mid span{font-size:10px;color:var(--text-muted);text-align:center;line-height:1.3}
+
+/* info callout */
+.callout{background:var(--amber-bg);border:0.5px solid #efbf6a;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--amber-dark);margin-top:10px;line-height:1.6}
+.callout b{font-weight:500}
+
+/* stage hidden/shown */
+.stage{display:none}
+.stage.active{display:block}
+
+@media(max-width:560px){
+  .two-col{grid-template-columns:1fr}
+  .arrow-mid{padding-top:4px;flex-direction:row;gap:6px}
+  .chunk-snippet{display:none}
+}
+</style>
+</head>
+<body>
+
+<h1>RAG pipeline simulator</h1>
+<p class="subtitle">Step through each stage of a retrieval-augmented generation pipeline.</p>
+
+<!-- Progress -->
+<div class="progress">
+  <div class="prog-step active" id="p0">1 · Query</div>
+  <div class="prog-step" id="p1">2 · Embed</div>
+  <div class="prog-step" id="p2">3 · Retrieve</div>
+  <div class="prog-step" id="p3">4 · Rerank</div>
+  <div class="prog-step" id="p4">5 · Prompt</div>
+  <div class="prog-step" id="p5">6 · Answer</div>
+</div>
+
+<!-- ── STAGE 0: Query ── -->
+<div class="stage active" id="stage-0">
+  <div class="card">
+    <div class="card-title" style="color:var(--blue-dark)">Choose or type a question</div>
+    <div id="preset-chips">
+      <span class="chip active" data-q="What is the refund policy for digital products?">Refund on digital products</span>
+      <span class="chip" data-q="How do I return a physical item?">Return a physical item</span>
+      <span class="chip" data-q="How long does a refund take to process?">Refund processing time</span>
+      <span class="chip" data-q="Can I exchange an item instead of getting a refund?">Exchange instead of refund</span>
+    </div>
+    <input class="q-input" id="q-input" type="text" value="What is the refund policy for digital products?" placeholder="Or type your own question…">
+  </div>
+  <div class="nav">
+    <button class="primary" onclick="goTo(1)">Embed this question →</button>
+  </div>
+</div>
+
+<!-- ── STAGE 1: Embed ── -->
+<div class="stage" id="stage-1">
+  <div class="card">
+    <div class="card-title" style="color:var(--purp-dark)">Embedding — question mapped to vector space</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Your question is converted to a dense vector by an embedding model. Below, both your question (star) and all chunks in the DB are plotted in 2D. Similar meaning = closer together.</p>
+    <canvas id="vec-canvas" height="320"></canvas>
+    <div class="callout" style="margin-top:12px"><b>Your query vector:</b> <span id="vec-preview" style="font-family:var(--mono);font-size:11px"></span></div>
+  </div>
+  <div class="nav">
+    <button onclick="goTo(0)">← Back</button>
+    <button class="primary" onclick="goTo(2)">Search the DB →</button>
+    <span class="step-hint">ANN search finds nearest chunks</span>
+  </div>
+</div>
+
+<!-- ── STAGE 2: Retrieve ── -->
+<div class="stage" id="stage-2">
+  <div class="card">
+    <div class="card-title" style="color:var(--teal-dark)">Retrieval — top 5 chunks by cosine similarity</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">The vector DB compares your query vector to every chunk and returns the 5 closest by cosine similarity. Fast, but "close" doesn't always mean "most relevant".</p>
+    <div id="retrieve-list"></div>
+  </div>
+  <div class="nav">
+    <button onclick="goTo(1)">← Back</button>
+    <button class="primary" onclick="goTo(3)">Rerank results →</button>
+    <span class="step-hint">Cross-encoder reads each chunk carefully</span>
+  </div>
+</div>
+
+<!-- ── STAGE 3: Rerank ── -->
+<div class="stage" id="stage-3">
+  <div class="card">
+    <div class="card-title" style="color:var(--purp-dark)">Reranking — cross-encoder scores true relevance</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">A cross-encoder reads your question and each chunk together as text — much slower but far more accurate. Watch for position changes and big score drops.</p>
+    <div class="two-col">
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--teal-dark);margin-bottom:8px">Retrieval order</div>
+        <div id="rr-before"></div>
+      </div>
+      <div class="arrow-mid">→<span>rerank</span></div>
+      <div>
+        <div style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--purp-dark);margin-bottom:8px">Reranked order</div>
+        <div id="rr-after"></div>
+      </div>
+    </div>
+    <div class="callout" id="rerank-callout" style="margin-top:12px"></div>
+  </div>
+  <div class="nav">
+    <button onclick="goTo(2)">← Back</button>
+    <button class="primary" onclick="goTo(4)">Assemble prompt →</button>
+    <span class="step-hint">Top 3 go into the LLM prompt</span>
+  </div>
+</div>
+
+<!-- ── STAGE 4: Prompt ── -->
+<div class="stage" id="stage-4">
+  <div class="card">
+    <div class="card-title" style="color:var(--blue-dark)">Prompt assembly — what the LLM actually sees</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">The three parts are stitched together into a single prompt sent to the LLM. The system prompt grounds it, the context chunks are its "open book", and the question is last.</p>
+    <div class="prompt-block pb-sys">
+      <span class="pb-label" style="color:var(--purp-dark)">System prompt</span>
+      <span style="color:var(--text-secondary)">You are a helpful assistant. Answer the user's question using only the provided context below. If the context doesn't contain enough information, say so clearly. Be concise and cite sources.</span>
+    </div>
+    <div class="prompt-block pb-ctx">
+      <span class="pb-label" style="color:var(--teal-dark)">Context (top 3 reranked chunks)</span>
+      <div id="prompt-chunks"></div>
+    </div>
+    <div class="prompt-block pb-q">
+      <span class="pb-label" style="color:var(--blue-dark)">User question</span>
+      <span id="prompt-q" style="color:var(--text-primary)"></span>
+    </div>
+    <div class="callout"><b>Context window used:</b> ~<span id="token-estimate">—</span> tokens out of a 128k budget. Plenty of room.</div>
+  </div>
+  <div class="nav">
+    <button onclick="goTo(3)">← Back</button>
+    <button class="primary" onclick="goTo(5)">Generate answer →</button>
+    <span class="step-hint">LLM reads all of this and responds</span>
+  </div>
+</div>
+
+<!-- ── STAGE 5: Answer ── -->
+<div class="stage" id="stage-5">
+  <div class="card">
+    <div class="card-title" style="color:var(--teal-dark)">Generated answer</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">The LLM synthesises the context chunks into a coherent answer. It doesn't copy chunks verbatim — it integrates them. Sources are cited from the chunk metadata.</p>
+    <div id="answer-box"></div>
+    <div class="callout" style="margin-top:12px" id="answer-note"></div>
+  </div>
+  <div class="nav">
+    <button onclick="goTo(4)">← Back</button>
+    <button class="primary" onclick="restart()">Start over with new query ↺</button>
+  </div>
+</div>
+
+<script>
+const CORPUS = [
+  { name:'digital-terms.pdf · p1', snippet:'Digital products are non-refundable once downloaded unless the file is corrupted…', x:0.62, y:0.22, topic:'refund' },
+  { name:'refund-policy.pdf · p3', snippet:'Customers may request a full refund within 30 days of purchase for physical…',  x:0.55, y:0.30, topic:'refund' },
+  { name:'faq.md · s5',            snippet:'Processing time for approved refunds is 3–5 business days to your original…',   x:0.58, y:0.38, topic:'refund' },
+  { name:'support-faq.md · s4',    snippet:'Contact support@acme.com with your order number to initiate any return…',       x:0.50, y:0.44, topic:'support' },
+  { name:'digital-terms.pdf · p2', snippet:'Subscription cancellations take effect at the end of the billing period…',      x:0.68, y:0.28, topic:'refund' },
+  { name:'returns-guide.pdf · p1', snippet:'Physical items must be returned in original packaging within 30 days…',         x:0.30, y:0.62, topic:'returns' },
+  { name:'returns-guide.pdf · p2', snippet:'Return shipping labels can be printed from your account dashboard…',            x:0.22, y:0.70, topic:'returns' },
+  { name:'refund-policy.pdf · p1', snippet:'All refund requests are reviewed within 2 business days of submission…',        x:0.48, y:0.35, topic:'refund' },
+  { name:'faq.md · s2',            snippet:'You can exchange an item for a different size or colour within 14 days…',       x:0.35, y:0.55, topic:'exchange' },
+  { name:'products.md · p1',       snippet:'Our product catalogue includes over 500 digital and physical items…',            x:0.20, y:0.25, topic:'products' },
+  { name:'products.md · p2',       snippet:'New arrivals are added to the catalogue every Tuesday and Thursday…',            x:0.15, y:0.18, topic:'products' },
+  { name:'shipping.pdf · p1',      snippet:'Standard shipping takes 3–7 business days; express 1–2 business days…',        x:0.80, y:0.65, topic:'shipping' },
+];
+
+const QUERY_DATA = {
+  'What is the refund policy for digital products?': {
+    qx:0.60, qy:0.18,
+    retrieved:[
+      {idx:0, vec:0.91}, {idx:4, vec:0.87}, {idx:1, vec:0.84}, {idx:7, vec:0.81}, {idx:3, vec:0.79}
+    ],
+    rerank:[
+      {idx:0, score:0.97}, {idx:1, score:0.92}, {idx:4, score:0.38}, {idx:7, score:0.31}, {idx:3, score:0.19}
+    ],
+    insight:'support-faq.md \u00b7 s4 looked relevant by vector (0.79) but scored only 0.19 on reranking \u2014 it\u2019s about contacting support, not the actual policy. digital-terms.pdf \u00b7 p1 stays #1.',
+    answer:`Based on the information I have, here is what I found!\n\nDigital products at Acme Corp are generally <b>non-refundable once downloaded</b> [digital-terms.pdf · p1]. However, exceptions are made if the file is corrupted or inaccessible — in those cases you are eligible for a full refund.\n\nFor physical products, refunds can be requested within <b>30 days of purchase</b> [refund-policy.pdf · p3]. Once approved, refunds are typically processed back to your original payment method within 3–5 business days [faq.md · s5].\n\nIf your situation isn't covered above, I recommend checking the full refund policy document or contacting support directly.`,
+  },
+  'How do I return a physical item?': {
+    qx:0.25, qy:0.67,
+    retrieved:[
+      {idx:5, vec:0.93}, {idx:6, vec:0.89}, {idx:8, vec:0.77}, {idx:1, vec:0.74}, {idx:7, vec:0.70}
+    ],
+    rerank:[
+      {idx:5, score:0.96}, {idx:6, score:0.88}, {idx:8, score:0.61}, {idx:1, score:0.22}, {idx:7, score:0.14}
+    ],
+    insight:'Retrieval and reranking mostly agree here \u2014 the top 2 stay the same. refund-policy.pdf \u00b7 p1 drops sharply (0.70 \u2192 0.14) because it\u2019s about approval timelines, not the return process itself.',
+    answer:`Based on the information I have, here is what I found!\n\nTo return a physical item, you must ensure it is in <b>original packaging</b> and initiate the return within <b>30 days</b> of purchase [returns-guide.pdf · p1].\n\nYou can print a <b>prepaid return shipping label</b> directly from your account dashboard — no need to arrange your own courier [returns-guide.pdf · p2].\n\nIf you'd prefer an exchange rather than a refund, that's also possible within 14 days for a different size or colour [faq.md · s2].`,
+  },
+  'How long does a refund take to process?': {
+    qx:0.52, qy:0.42,
+    retrieved:[
+      {idx:2, vec:0.92}, {idx:7, vec:0.86}, {idx:1, vec:0.83}, {idx:0, vec:0.79}, {idx:3, vec:0.75}
+    ],
+    rerank:[
+      {idx:2, score:0.96}, {idx:7, score:0.84}, {idx:3, score:0.55}, {idx:1, score:0.21}, {idx:0, score:0.12}
+    ],
+    insight:'digital-terms.pdf \u00b7 p1 drops from #4 to last (0.79 \u2192 0.12) \u2014 it\u2019s about download eligibility, not timing. The reranker correctly identifies faq.md \u00b7 s5 as the most relevant chunk.',
+    answer:`Based on the information I have, here is what I found!\n\nOnce a refund is approved, processing takes <b>3–5 business days</b> for the amount to appear on your original payment method [faq.md · s5].\n\nAll refund requests are reviewed within <b>2 business days</b> of submission [refund-policy.pdf · p1], so the total wait from submission to receiving your money back is typically <b>5–7 business days</b>.\n\nIf you haven't seen the refund after 7 business days, contacting support with your order number is the recommended next step [support-faq.md · s4].`,
+  },
+  'Can I exchange an item instead of getting a refund?': {
+    qx:0.38, qy:0.52,
+    retrieved:[
+      {idx:8, vec:0.91}, {idx:5, vec:0.82}, {idx:1, vec:0.78}, {idx:7, vec:0.74}, {idx:6, vec:0.71}
+    ],
+    rerank:[
+      {idx:8, score:0.97}, {idx:5, score:0.63}, {idx:1, score:0.44}, {idx:6, score:0.22}, {idx:7, score:0.18}
+    ],
+    insight:'faq.md · s2 is clearly the winner here. returns-guide.pdf · p2 (shipping labels) drops from #5 to last at 0.18 — topically adjacent to returns but doesn\'t address exchanges at all.',
+    answer:`Based on the information I have, here is what I found!\n\nYes — exchanges are available for <b>different sizes or colours</b> within <b>14 days</b> of purchase [faq.md · s2]. This is separate from the standard 30-day refund window.\n\nFor physical items, the exchange process follows a similar flow to returns: original packaging is required and you can arrange the swap via your account dashboard [returns-guide.pdf · p1].\n\nNote that exchanges apply to physical products only. Digital products follow a different policy — see the refund policy for digital terms.`,
+  },
+};
+
+const TOPIC_COLORS = {
+  refund:   {fill:'#E1F5EE', stroke:'#1D9E75', label:'#085041'},
+  returns:  {fill:'#EEEDFE', stroke:'#7F77DD', label:'#3C3489'},
+  support:  {fill:'#FAECE7', stroke:'#D85A30', label:'#712B13'},
+  exchange: {fill:'#E6F1FB', stroke:'#378ADD', label:'#0C447C'},
+  products: {fill:'#FAEEDA', stroke:'#BA7517', label:'#633806'},
+  shipping: {fill:'#F1EFE8', stroke:'#888780', label:'#444441'},
+};
+
+let currentQ = 'What is the refund policy for digital products?';
+let streamTimer = null;
+
+function getQData(){ return QUERY_DATA[currentQ] || QUERY_DATA['What is the refund policy for digital products?']; }
+
+// ── Stage navigation ──
+function goTo(n){
+  document.querySelectorAll('.stage').forEach((s,i)=>{
+    s.classList.toggle('active', i===n);
+  });
+  document.querySelectorAll('.prog-step').forEach((p,i)=>{
+    p.classList.remove('active','done');
+    if(i<n) p.classList.add('done');
+    if(i===n) p.classList.add('active');
+  });
+  if(n===1) renderEmbed();
+  if(n===2) renderRetrieve();
+  if(n===3) renderRerank();
+  if(n===4) renderPrompt();
+  if(n===5) renderAnswer();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function restart(){
+  if(streamTimer) clearInterval(streamTimer);
+  document.getElementById('q-input').value = currentQ;
+  goTo(0);
+}
+
+// ── Stage 0: Query ──
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    currentQ = c.dataset.q;
+    document.getElementById('q-input').value = currentQ;
+  });
+});
+document.getElementById('q-input').addEventListener('input', e=>{
+  currentQ = e.target.value || currentQ;
+  document.querySelectorAll('.chip').forEach(c=>{
+    c.classList.toggle('active', c.dataset.q === currentQ);
+  });
+});
+
+// ── Stage 1: Embed ──
+function renderEmbed(){
+  const canvas = document.getElementById('vec-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  canvas.width = W; canvas.height = 320;
+  const PAD = 40;
+  const toX = x => PAD + x*(W-2*PAD);
+  const toY = y => PAD + y*(320-2*PAD);
+  ctx.clearRect(0,0,W,320);
+
+  const qd = getQData();
+
+  // draw faint grid
+  ctx.strokeStyle='rgba(0,0,0,0.04)'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const x=PAD+i*(W-2*PAD)/4, y=PAD+i*(320-2*PAD)/4;
+    ctx.beginPath();ctx.moveTo(x,PAD);ctx.lineTo(x,320-PAD);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PAD,y);ctx.lineTo(W-PAD,y);ctx.stroke();
+  }
+
+  // draw chunks
+  CORPUS.forEach((c,i)=>{
+    const isRetrieved = qd.retrieved.some(r=>r.idx===i);
+    const col = TOPIC_COLORS[c.topic];
+    const px=toX(c.x), py=toY(c.y);
+    ctx.beginPath();
+    ctx.arc(px,py,isRetrieved?7:5,0,Math.PI*2);
+    ctx.fillStyle = isRetrieved ? col.stroke : col.fill;
+    ctx.fill();
+    ctx.strokeStyle = col.stroke;
+    ctx.lineWidth = isRetrieved ? 2 : 0.8;
+    ctx.stroke();
+    ctx.font=`${isRetrieved?'500 ':' '}11px system-ui,sans-serif`;
+    ctx.fillStyle=col.label;
+    ctx.textAlign='center';
+    const label = c.name.split('·')[0].trim();
+    ctx.fillText(label, px, py-10);
+  });
+
+  // draw query star
+  const qx=toX(qd.qx), qy=toY(qd.qy);
+  drawStar(ctx, qx, qy, 10, '#185FA5');
+
+  // draw lines to retrieved
+  qd.retrieved.forEach(r=>{
+    const c=CORPUS[r.idx];
+    const px=toX(c.x), py=toY(c.y);
+    ctx.beginPath();
+    ctx.moveTo(qx,qy);ctx.lineTo(px,py);
+    ctx.strokeStyle='rgba(29,158,117,0.35)';
+    ctx.lineWidth=1+r.vec*1.5;
+    ctx.setLineDash([4,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // redraw query star on top
+  drawStar(ctx, qx, qy, 10, '#185FA5');
+
+  // legend
+  const topics = [...new Set(CORPUS.map(c=>c.topic))];
+  let lx=PAD, ly=300;
+  topics.forEach(t=>{
+    const col=TOPIC_COLORS[t];
+    ctx.beginPath();ctx.arc(lx+5,ly,5,0,Math.PI*2);
+    ctx.fillStyle=col.fill;ctx.fill();
+    ctx.strokeStyle=col.stroke;ctx.lineWidth=1;ctx.stroke();
+    ctx.font='10px system-ui,sans-serif';ctx.fillStyle='#888780';ctx.textAlign='left';
+    ctx.fillText(t,lx+13,ly+4);
+    lx+=60+t.length*4;
+  });
+  // star legend
+  drawStar(ctx,lx+5,ly,5,'#185FA5');
+  ctx.font='10px system-ui,sans-serif';ctx.fillStyle='#0C447C';ctx.textAlign='left';
+  ctx.fillText('your query',lx+13,ly+4);
+
+  // fake vector preview
+  const fakeVec = Array.from({length:8},(_,i)=>((Math.sin(currentQ.charCodeAt(i%currentQ.length)*0.7+i)*0.5+0.5)).toFixed(2));
+  document.getElementById('vec-preview').textContent = '['+fakeVec.join(', ')+' …]';
+}
+
+function drawStar(ctx, cx, cy, r, color){
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const a1=Math.PI*2*i/5-Math.PI/2;
+    const a2=Math.PI*2*(i+0.5)/5-Math.PI/2;
+    if(i===0) ctx.moveTo(cx+Math.cos(a1)*r, cy+Math.sin(a1)*r);
+    else ctx.lineTo(cx+Math.cos(a1)*r, cy+Math.sin(a1)*r);
+    ctx.lineTo(cx+Math.cos(a2)*(r*0.4), cy+Math.sin(a2)*(r*0.4));
+  }
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+}
+
+// ── Stage 2: Retrieve ──
+function renderRetrieve(){
+  const qd=getQData();
+  const el=document.getElementById('retrieve-list');
+  el.innerHTML='';
+  qd.retrieved.forEach((r,i)=>{
+    const c=CORPUS[r.idx];
+    const pct=Math.round(r.vec*100);
+    const row=document.createElement('div');
+    row.className='chunk-row hi';
+    row.style.opacity='0';row.style.transform='translateY(8px)';
+    row.innerHTML=`
+      <div class="rank-badge" style="background:var(--teal-bg);color:var(--teal-dark)">${i+1}</div>
+      <div class="chunk-name">${c.name}</div>
+      <div class="chunk-snippet">${c.snippet}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:var(--teal-mid)"></div></div>
+      <span class="score-pill" style="background:var(--teal-bg);color:var(--teal-dark)">${r.vec.toFixed(2)}</span>`;
+    el.appendChild(row);
+    setTimeout(()=>{row.style.transition='opacity .3s,transform .3s';row.style.opacity='1';row.style.transform='none';},i*80);
+  });
+}
+
+// ── Stage 3: Rerank ──
+function renderRerank(){
+  const qd=getQData();
+  const before=document.getElementById('rr-before');
+  const after=document.getElementById('rr-after');
+  before.innerHTML='';after.innerHTML='';
+
+  const rrMap={};
+  qd.rerank.forEach(r=>rrMap[r.idx]=r.score);
+  const rrOrder=[...qd.rerank].sort((a,b)=>b.score-a.score);
+
+  // build position maps
+  const vecPos={}, rrPos={};
+  qd.retrieved.forEach((r,i)=>vecPos[r.idx]=i);
+  rrOrder.forEach((r,i)=>rrPos[r.idx]=i);
+
+  qd.retrieved.forEach((r,i)=>{
+    const c=CORPUS[r.idx];
+    const moved = vecPos[r.idx] !== rrPos[r.idx];
+    const pct=Math.round(r.vec*100);
+    const row=document.createElement('div');
+    row.className='chunk-row';
+    row.innerHTML=`
+      <div class="rank-badge" style="background:var(--teal-bg);color:var(--teal-dark)">${i+1}</div>
+      <div class="chunk-name">${c.name}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:var(--teal-mid)"></div></div>
+      <span class="score-pill" style="background:var(--teal-bg);color:var(--teal-dark)">${r.vec.toFixed(2)}</span>`;
+    before.appendChild(row);
+  });
+
+  rrOrder.forEach((r,i)=>{
+    const c=CORPUS[r.idx];
+    const dim=i>=3;
+    const moved = vecPos[r.idx] !== rrPos[r.idx] && !dim;
+    const pct=Math.round(r.score*100);
+    const row=document.createElement('div');
+    row.className='chunk-row'+(dim?' dim':'')+(i<3?' hi-purp':'');
+    row.innerHTML=`
+      <div class="rank-badge" style="background:var(--purp-bg);color:var(--purp-dark)">${i+1}</div>
+      <div class="chunk-name">${c.name}${moved?'<span class="moved-badge" style="margin-left:5px">moved</span>':''}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:var(--purp-mid)"></div></div>
+      <span class="score-pill" style="background:var(--purp-bg);color:var(--purp-dark)">${r.score.toFixed(2)}</span>`;
+    after.appendChild(row);
+  });
+
+  const disc=document.createElement('div');
+  disc.style.cssText='margin-top:4px;font-size:11px;color:var(--text-muted);text-align:center;padding:4px 0;border-top:0.5px dashed var(--border)';
+  disc.textContent='↑ top 3 sent to LLM · bottom 2 discarded';
+  after.appendChild(disc);
+
+  document.getElementById('rerank-callout').innerHTML='<b>What changed:</b> '+qd.insight;
+}
+
+// ── Stage 4: Prompt ──
+function renderPrompt(){
+  const qd=getQData();
+  const rrOrder=[...qd.rerank].sort((a,b)=>b.score-a.score).slice(0,3);
+  const el=document.getElementById('prompt-chunks');
+  el.innerHTML='';
+  rrOrder.forEach((r,i)=>{
+    const c=CORPUS[r.idx];
+    const div=document.createElement('div');
+    div.style.cssText='margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.5);border-radius:6px;border:0.5px solid var(--teal-border)';
+    div.innerHTML=`<span style="font-size:10px;font-weight:500;color:var(--teal-dark)">[Doc ${i+1} | ${c.name} | score: ${r.score.toFixed(2)}]</span><br><span style="color:var(--text-secondary)">${c.snippet}</span>`;
+    el.appendChild(div);
+  });
+  document.getElementById('prompt-q').textContent = currentQ;
+  const tokens = 120 + rrOrder.length*60 + Math.round(currentQ.length/4);
+  document.getElementById('token-estimate').textContent = tokens;
+}
+
+// ── Stage 5: Answer ──
+function renderAnswer(){
+  const qd=getQData();
+  const box=document.getElementById('answer-box');
+  box.innerHTML='<span class="cursor"></span>';
+
+  const note=document.getElementById('answer-note');
+  const qd2=getQData();
+  const rrTop=[...qd2.rerank].sort((a,b)=>b.score-a.score).slice(0,3).map(r=>CORPUS[r.idx].name.split('·')[0].trim()).join(', ');
+  note.innerHTML=`<b>Sources used:</b> ${rrTop}. The LLM synthesised these chunks — it did not copy them verbatim.`;
+
+  const html=qd.answer;
+  const plain=html.replace(/<[^>]+>/g,'');
+  let i=0;
+  if(streamTimer) clearInterval(streamTimer);
+  streamTimer=setInterval(()=>{
+    if(i>=plain.length){clearInterval(streamTimer);box.innerHTML=html;return;}
+    const chunk=plain.slice(0,i+1);
+    box.innerHTML=chunk+'<span class="cursor"></span>';
+    i+=2;
+  },18);
+}
+
+// init canvas on resize
+window.addEventListener('resize',()=>{
+  if(document.getElementById('stage-1').classList.contains('active')) renderEmbed();
+});
+</script>
+</body>
+</html>

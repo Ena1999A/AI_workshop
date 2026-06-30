@@ -1,0 +1,169 @@
+<style>
+* { box-sizing: border-box; }
+canvas { display: block; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1.5px solid transparent; transition: border-color .15s, opacity .15s; user-select: none; }
+.chip.active { border-color: currentColor; }
+.vec-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; font-family: var(--font-mono); }
+.bar { height: 14px; border-radius: 3px; transition: width .3s; min-width: 2px; }
+.val { width: 40px; text-align: right; color: var(--text-muted); flex-shrink: 0; }
+.dim-label { width: 48px; color: var(--text-secondary); flex-shrink: 0; }
+</style>
+
+<h2 class="sr-only">Interactive embedding space visualiser: click words to see their position in 2D space and their vector values</h2>
+
+<p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Click any word to see where it lives in embedding space and what its vector looks like.</p>
+
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px" id="chips"></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+
+<div>
+  <p style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 8px">2D embedding space</p>
+  <canvas id="cv" width="300" height="300" style="border:0.5px solid var(--border);border-radius:8px;width:100%;max-width:300px"></canvas>
+</div>
+
+<div>
+  <p style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 8px">Vector (8 dims shown)</p>
+  <div id="vec-display" style="padding:12px;border:0.5px solid var(--border);border-radius:8px;min-height:160px;background:var(--surface-1)">
+    <p style="font-size:12px;color:var(--text-muted);margin:0">Select a word →</p>
+  </div>
+  <div style="margin-top:12px;padding:12px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface-1)">
+    <p style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin:0 0 6px">Nearest neighbours</p>
+    <div id="nn-display" style="font-size:12px;color:var(--text-muted)">—</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const words = [
+  { label: 'cat',       x: 0.18, y: 0.22, group: 'animal',   vec: [0.82, 0.79, 0.05, 0.03, 0.11, 0.08, 0.14, 0.19] },
+  { label: 'dog',       x: 0.25, y: 0.30, group: 'animal',   vec: [0.78, 0.81, 0.06, 0.04, 0.10, 0.09, 0.12, 0.22] },
+  { label: 'kitten',    x: 0.12, y: 0.16, group: 'animal',   vec: [0.85, 0.76, 0.04, 0.02, 0.09, 0.07, 0.13, 0.17] },
+  { label: 'puppy',     x: 0.30, y: 0.20, group: 'animal',   vec: [0.76, 0.83, 0.05, 0.03, 0.08, 0.06, 0.11, 0.20] },
+  { label: 'Paris',     x: 0.72, y: 0.18, group: 'city',     vec: [0.04, 0.06, 0.88, 0.82, 0.09, 0.05, 0.77, 0.14] },
+  { label: 'London',    x: 0.80, y: 0.25, group: 'city',     vec: [0.05, 0.07, 0.85, 0.79, 0.10, 0.06, 0.74, 0.16] },
+  { label: 'Berlin',    x: 0.75, y: 0.32, group: 'city',     vec: [0.04, 0.05, 0.83, 0.81, 0.08, 0.04, 0.71, 0.13] },
+  { label: 'happy',     x: 0.48, y: 0.72, group: 'emotion',  vec: [0.09, 0.07, 0.11, 0.08, 0.87, 0.14, 0.06, 0.83] },
+  { label: 'joyful',    x: 0.42, y: 0.78, group: 'emotion',  vec: [0.08, 0.06, 0.10, 0.07, 0.89, 0.12, 0.05, 0.86] },
+  { label: 'sad',       x: 0.55, y: 0.82, group: 'emotion',  vec: [0.07, 0.05, 0.09, 0.06, 0.12, 0.88, 0.04, 0.14] },
+  { label: 'code',      x: 0.20, y: 0.62, group: 'tech',     vec: [0.11, 0.08, 0.14, 0.10, 0.06, 0.05, 0.84, 0.09] },
+  { label: 'Python',    x: 0.14, y: 0.70, group: 'tech',     vec: [0.09, 0.06, 0.12, 0.09, 0.05, 0.04, 0.87, 0.07] },
+  { label: 'database',  x: 0.26, y: 0.68, group: 'tech',     vec: [0.10, 0.07, 0.13, 0.10, 0.07, 0.05, 0.81, 0.08] },
+];
+
+const groups = {
+  animal:  { bg: '#E1F5EE', border: '#0F6E56', text: '#085041' },
+  city:    { bg: '#EEEDFE', border: '#534AB7', text: '#3C3489' },
+  emotion: { bg: '#FAECE7', border: '#993C1D', text: '#712B13' },
+  tech:    { bg: '#E6F1FB', border: '#185FA5', text: '#0C447C' },
+};
+
+const chips = document.getElementById('chips');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = 300, H = 300;
+let selected = null;
+
+function cosine(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+function draw(sel) {
+  ctx.clearRect(0, 0, W, H);
+  const pad = 30;
+  const toX = x => pad + x * (W - 2*pad);
+  const toY = y => pad + y * (H - 2*pad);
+
+  if (sel) {
+    words.forEach(w => {
+      if (w === sel) return;
+      const sim = cosine(sel.vec, w.vec);
+      if (sim > 0.92) {
+        ctx.beginPath();
+        ctx.moveTo(toX(sel.x), toY(sel.y));
+        ctx.lineTo(toX(w.x), toY(w.y));
+        ctx.strokeStyle = groups[sel.group].border + '55';
+        ctx.lineWidth = 1 + (sim - 0.92) * 20;
+        ctx.stroke();
+      }
+    });
+  }
+
+  words.forEach(w => {
+    const g = groups[w.group];
+    const isSelected = w === sel;
+    const px = toX(w.x), py = toY(w.y);
+    const r = isSelected ? 7 : 5;
+
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI*2);
+    ctx.fillStyle = isSelected ? g.border : g.bg;
+    ctx.fill();
+    ctx.strokeStyle = g.border;
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.stroke();
+
+    ctx.font = isSelected ? '500 11px sans-serif' : '11px sans-serif';
+    ctx.fillStyle = g.text;
+    ctx.textAlign = 'center';
+    ctx.fillText(w.label, px, py - r - 4);
+  });
+}
+
+function renderVec(w) {
+  const g = groups[w.group];
+  const container = document.getElementById('vec-display');
+  const dimNames = ['animal', 'pet', 'place', 'city', 'positive', 'negative', 'tech', 'joy'];
+  container.innerHTML = `<p style="font-size:12px;font-weight:500;margin:0 0 10px;color:${g.text}">"${w.label}"</p>` +
+    w.vec.map((v, i) => `
+      <div class="vec-row">
+        <span class="dim-label">${dimNames[i]}</span>
+        <div style="flex:1;background:var(--surface-0);border-radius:3px;overflow:hidden;height:14px">
+          <div class="bar" style="width:${Math.round(v*100)}%;background:${g.border}"></div>
+        </div>
+        <span class="val">${v.toFixed(2)}</span>
+      </div>`).join('');
+}
+
+function renderNN(w) {
+  const sims = words
+    .filter(o => o !== w)
+    .map(o => ({ label: o.label, sim: cosine(w.vec, o.vec), group: o.group }))
+    .sort((a, b) => b.sim - a.sim)
+    .slice(0, 4);
+  document.getElementById('nn-display').innerHTML = sims.map(s =>
+    `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid var(--border)">
+      <span style="color:${groups[s.group].text}">${s.label}</span>
+      <span style="color:var(--text-muted);font-family:var(--font-mono)">${s.sim.toFixed(3)}</span>
+    </div>`
+  ).join('');
+}
+
+function select(w) {
+  selected = w;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('chip-' + w.label).classList.add('active');
+  draw(w);
+  renderVec(w);
+  renderNN(w);
+}
+
+words.forEach(w => {
+  const g = groups[w.group];
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.id = 'chip-' + w.label;
+  chip.textContent = w.label;
+  chip.style.background = g.bg;
+  chip.style.color = g.text;
+  chip.style.setProperty('--c', g.border);
+  chip.addEventListener('click', () => select(w));
+  chips.appendChild(chip);
+});
+
+draw(null);
+select(words[0]);
+</script>
