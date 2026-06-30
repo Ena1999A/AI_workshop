@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Conversation History — Interactive Lab</title>
+<style>
+:root{
+  --ink:#1C1B1A;
+  --paper:#FAF8F5;
+  --line:#E4E0D8;
+  --rule:#1C1B1A;
+  --accent:#B8541E;
+  --accent-soft:#F2D9C5;
+  --mono-bg:#EFEBE3;
+  --good:#2E5E45;
+  --bad:#A23B2E;
+  --c1:#B8541E;
+  --c2:#3D6B7A;
+  --c3:#7A5C3D;
+  --c4:#5E5240;
+  --c5:#8C6E2F;
+  --c6:#4A5759;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  line-height:1.5;
+}
+.wrap{max-width:980px;margin:0 auto;padding:0 32px;}
+
+header.hero{
+  border-bottom:1px solid var(--rule);
+  padding:64px 0 40px;
+}
+.eyebrow{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  color:var(--accent);
+  margin-bottom:14px;
+}
+h1{
+  font-size:44px;
+  margin:0 0 14px;
+  font-weight:700;
+  letter-spacing:-0.01em;
+  line-height:1.08;
+}
+.sub{
+  font-size:17px;
+  color:#52504A;
+  max-width:640px;
+  margin:0;
+}
+nav.toc{
+  display:flex;
+  flex-wrap:wrap;
+  gap:0;
+  margin-top:32px;
+  border-top:1px solid var(--line);
+}
+nav.toc a{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:var(--ink);
+  text-decoration:none;
+  padding:10px 16px 10px 0;
+  border-right:1px solid var(--line);
+  white-space:nowrap;
+}
+nav.toc a:hover{color:var(--accent);}
+
+section{
+  padding:56px 0;
+  border-bottom:1px solid var(--line);
+}
+section:last-of-type{border-bottom:none;}
+
+.kicker{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  color:var(--accent);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+h2{
+  font-size:28px;
+  margin:0 0 12px;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+p.lead{
+  font-size:16px;
+  color:#3a3934;
+  max-width:680px;
+  margin:0 0 24px;
+}
+
+/* NAIVE OVERFLOW */
+.naive-box{
+  border:1px solid var(--line);
+  background:#fff;
+  padding:32px;
+  margin-top:24px;
+}
+.naive-row{
+  display:flex;
+  justify-content:space-between;
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:#6b6960;
+  margin-bottom:6px;
+}
+.naive-controls{display:flex;align-items:center;gap:16px;margin:14px 0 22px;}
+.naive-controls button{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  padding:9px 18px;
+  border:1px solid var(--ink);
+  background:var(--ink);
+  color:var(--paper);
+  cursor:pointer;
+  text-transform:uppercase;
+}
+.naive-controls button:hover{background:var(--accent);border-color:var(--accent);}
+.naive-controls .turncount{font-family:"Courier New",monospace;font-size:13px;color:var(--accent);font-weight:700;}
+.token-meter{
+  height:28px;
+  border:1px solid var(--ink);
+  position:relative;
+  overflow:hidden;
+  background:#fff;
+}
+.token-meter-fill{
+  height:100%;
+  background:var(--c1);
+  transition:width 0.3s ease, background 0.3s ease;
+}
+.token-meter-fill.danger{background:var(--bad);}
+.token-meter-label{
+  position:absolute;
+  top:0;left:0;right:0;bottom:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  letter-spacing:0.04em;
+  mix-blend-mode:difference;
+  color:#fff;
+}
+.naive-stats{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:24px;
+  margin-top:18px;
+}
+.stat{
+  border-left:2px solid var(--accent);
+  padding-left:14px;
+}
+.stat .label{font-family:"Courier New",monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#6b6960;}
+.stat .value{font-size:22px;font-weight:700;margin:2px 0;}
+.stat .note{font-size:13px;color:#6b6960;}
+.overflow-warning{
+  margin-top:16px;
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  color:var(--bad);
+  border-left:3px solid var(--bad);
+  padding:10px 14px;
+  background:#fdf2f0;
+  display:none;
+}
+.overflow-warning.show{display:block;}
+
+/* PLAYGROUND */
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:20px;
+}
+.strategy-btn{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  letter-spacing:0.03em;
+  padding:9px 16px;
+  border:1px solid var(--ink);
+  background:#fff;
+  color:var(--ink);
+  cursor:pointer;
+  text-transform:uppercase;
+}
+.strategy-btn.active{
+  background:var(--ink);
+  color:var(--paper);
+}
+.strategy-btn:hover:not(.active){background:var(--accent-soft);}
+
+.params{
+  display:flex;
+  flex-wrap:wrap;
+  gap:28px;
+  border:1px solid var(--line);
+  background:#fff;
+  padding:18px 24px;
+  margin-bottom:20px;
+  align-items:flex-end;
+}
+.param{display:flex;flex-direction:column;gap:6px;min-width:160px;}
+.param label{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  color:#6b6960;
+  display:flex;
+  justify-content:space-between;
+}
+.param label span.v{color:var(--accent);font-weight:700;}
+.param input[type=range]{margin:0;width:160px;}
+.param input[type=text]{
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  padding:7px 10px;
+  border:1px solid var(--ink);
+  background:#fff;
+  width:200px;
+}
+
+.strategy-desc{
+  font-size:14px;
+  color:#52504A;
+  background:var(--mono-bg);
+  border-left:3px solid var(--accent);
+  padding:12px 16px;
+  margin-bottom:20px;
+  max-width:700px;
+}
+
+.output-label{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  color:#6b6960;
+  margin-bottom:10px;
+  display:flex;
+  justify-content:space-between;
+}
+
+/* CHAT TRANSCRIPT */
+.transcript{
+  border:1px solid var(--line);
+  background:#fff;
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  max-height:560px;
+  overflow-y:auto;
+}
+.msg{
+  display:flex;
+  gap:12px;
+  padding:10px 12px;
+  border-left:4px solid var(--line);
+  font-size:13.5px;
+  transition:opacity 0.25s, border-color 0.25s, background 0.25s;
+}
+.msg .role{
+  font-family:"Courier New",monospace;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:#8a8779;
+  width:50px;
+  flex-shrink:0;
+  padding-top:2px;
+}
+.msg .content{flex:1;}
+.msg .turntag{
+  font-family:"Courier New",monospace;
+  font-size:9.5px;
+  color:#b3b0a4;
+  margin-left:8px;
+}
+.msg.kept{border-left-color:var(--good);background:#f5f9f6;}
+.msg.dropped{opacity:0.28;border-left-color:var(--bad);}
+.msg.summarized{border-left-color:var(--c5);background:#faf6ed;opacity:0.55;}
+.msg.retrieved{border-left-color:var(--accent);background:#fdf5ef;}
+.msg.longterm{border-left-color:var(--c2);background:#f2f7f8;}
+.msg .score-tag{
+  font-family:"Courier New",monospace;
+  font-size:9.5px;
+  color:var(--accent);
+  margin-left:8px;
+  font-weight:700;
+}
+.summary-card{
+  border:1px dashed var(--c5);
+  background:#faf6ed;
+  padding:12px 14px;
+  font-family:"Courier New",monospace;
+  font-size:12.5px;
+  color:#5e5240;
+  margin-bottom:4px;
+}
+.summary-card .tag{
+  font-family:"Courier New",monospace;
+  font-size:10px;
+  text-transform:uppercase;
+  color:var(--c5);
+  margin-bottom:4px;
+  display:block;
+}
+
+.chunk-summary-line{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  color:#6b6960;
+}
+
+/* HIERARCHICAL MEMORY */
+.memory-split{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+  margin-top:24px;
+}
+@media(max-width:760px){.memory-split{grid-template-columns:1fr;}}
+.memory-col{
+  border:1px solid var(--line);
+  background:#fff;
+}
+.memory-col-head{
+  padding:14px 18px;
+  border-bottom:1px solid var(--line);
+  font-family:"Courier New",monospace;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.memory-col.short .memory-col-head{background:var(--accent-soft);color:var(--accent);}
+.memory-col.long .memory-col-head{background:#eaf1f2;color:var(--c2);}
+.memory-col-body{padding:14px 18px;display:flex;flex-direction:column;gap:8px;min-height:200px;}
+.memory-item{
+  font-size:13px;
+  padding:8px 10px;
+  background:var(--mono-bg);
+  border-left:3px solid var(--c2);
+}
+.memory-col.short .memory-item{border-left-color:var(--accent);}
+.memory-item .turntag{font-family:"Courier New",monospace;font-size:10px;color:#8a8779;}
+
+/* COMPARE */
+.compare-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:24px;
+  margin-top:24px;
+}
+@media(max-width:760px){.compare-grid{grid-template-columns:1fr;}}
+.compare-col h3{
+  font-family:"Courier New",monospace;
+  font-size:13px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  margin:0 0 4px;
+}
+.compare-col .scoreline{
+  font-size:12px;
+  color:var(--accent);
+  font-family:"Courier New",monospace;
+  margin-bottom:10px;
+}
+
+/* PIPELINE-style mistakes reuse */
+.mistake-list{
+  display:grid;
+  gap:2px;
+  margin-top:24px;
+}
+.mistake-row{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+  border:1px solid var(--line);
+  background:#fff;
+  padding:16px 20px;
+  cursor:pointer;
+}
+.mistake-row .icon{
+  font-family:"Courier New",monospace;
+  font-size:18px;
+  width:24px;
+  flex-shrink:0;
+  color:var(--bad);
+}
+.mistake-row .body{flex:1;}
+.mistake-row .title{font-weight:700;font-size:14.5px;margin-bottom:4px;}
+.mistake-row .detail{
+  font-size:13px;
+  color:#52504A;
+  max-height:0;
+  overflow:hidden;
+  transition:max-height 0.2s ease;
+}
+.mistake-row.open .detail{max-height:200px;margin-top:6px;}
+.mistake-row .toggle{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  color:var(--accent);
+  flex-shrink:0;
+}
+
+footer{
+  padding:40px 0 60px;
+  text-align:center;
+}
+footer p{
+  font-family:"Courier New",monospace;
+  font-size:11px;
+  color:#8a8779;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">RAG Pipeline / Conversation Memory</div>
+    <h1>Conversation History, Worked&nbsp;Live</h1>
+    <p class="sub">Five ways to decide what a chatbot remembers as a conversation grows past your context window — and what gets quietly dropped. Built on the same AutoLease support thread throughout.</p>
+    <nav class="toc">
+      <a href="#naive">01 The naive approach</a>
+      <a href="#playground">02 Playground</a>
+      <a href="#hierarchy">03 Hierarchical memory</a>
+      <a href="#compare">04 Compare</a>
+      <a href="#mistakes">05 Mistakes</a>
+    </nav>
+  </div>
+</header>
+
+<!-- 01 NAIVE -->
+<section id="naive">
+  <div class="wrap">
+    <div class="kicker">01 — The naive approach</div>
+    <h2>Just send the whole history</h2>
+    <p class="lead">The simplest possible strategy: append every message ever exchanged to the prompt. Press the button and watch it grow — and watch what happens when it hits the wall.</p>
+
+    <div class="naive-box">
+      <div class="naive-row"><span>Token budget: 1,200 tokens (typical small-context deployment)</span><span id="naiveTokenLabel">0 / 1200</span></div>
+      <div class="token-meter"><div class="token-meter-fill" id="naiveFill" style="width:0%"></div><div class="token-meter-label" id="naiveFillLabel"></div></div>
+      <div class="naive-controls">
+        <button id="addTurnBtn">+ Add next turn</button>
+        <button id="resetNaiveBtn">Reset</button>
+        <span class="turncount" id="turnCounter">Turn 0 of 14</span>
+      </div>
+      <div class="naive-stats">
+        <div class="stat">
+          <div class="label">Messages in prompt</div>
+          <div class="value" id="naiveMsgCount">0</div>
+          <div class="note">Every single turn, no filtering.</div>
+        </div>
+        <div class="stat">
+          <div class="label">Tokens sent</div>
+          <div class="value" id="naiveTokenCount">0</div>
+          <div class="note">Cost and latency scale with this directly.</div>
+        </div>
+        <div class="stat">
+          <div class="label">Status</div>
+          <div class="value" id="naiveStatus">OK</div>
+          <div class="note" id="naiveStatusNote">Well within budget.</div>
+        </div>
+      </div>
+      <div class="overflow-warning" id="overflowWarning">⚠ Token budget exceeded — the oldest messages would now be silently truncated, including any early instructions or stated preferences.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 PLAYGROUND -->
+<section id="playground">
+  <div class="wrap">
+    <div class="kicker">02 — Live playground</div>
+    <h2>Run a real strategy on a real support thread</h2>
+    <p class="lead">A 14-turn AutoLease customer support conversation. Pick a strategy, tune it, and see exactly which messages survive into the next model call.</p>
+
+    <div class="controls" id="strategyButtons"></div>
+    <div class="params" id="paramRow"></div>
+    <div class="strategy-desc" id="strategyDesc"></div>
+
+    <div class="output-label">
+      <span>Full conversation — kept / dropped / summarized live</span>
+      <span class="chunk-summary-line" id="chunkSummary"></span>
+    </div>
+    <div class="transcript" id="transcript"></div>
+  </div>
+</section>
+
+<!-- 03 HIERARCHY -->
+<section id="hierarchy">
+  <div class="wrap">
+    <div class="kicker">03 — Hierarchical memory</div>
+    <h2>Short-term vs. long-term</h2>
+    <p class="lead">Not everything worth remembering belongs in the rolling window. A stated preference from turn 2 should still be alive at turn 14 — split by recency instead, and it survives.</p>
+
+    <div class="memory-split">
+      <div class="memory-col short">
+        <div class="memory-col-head">Short-term — last 3 turns</div>
+        <div class="memory-col-body" id="shortTermBody"></div>
+      </div>
+      <div class="memory-col long">
+        <div class="memory-col-head">Long-term — extracted facts</div>
+        <div class="memory-col-body" id="longTermBody"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 COMPARE -->
+<section id="compare">
+  <div class="wrap">
+    <div class="kicker">04 — Side by side</div>
+    <h2>Naive history vs. a real strategy</h2>
+    <p class="lead">The demo moment: same 14-turn thread, two approaches, very different token bills.</p>
+
+    <div class="compare-grid">
+      <div class="compare-col">
+        <h3>Naive — full history</h3>
+        <div class="scoreline" id="compareNaiveScore"></div>
+      </div>
+      <div class="compare-col">
+        <h3>Smart — sliding window + importance</h3>
+        <div class="scoreline" id="compareSmartScore"></div>
+      </div>
+    </div>
+    <div class="compare-grid" style="margin-top:0;">
+      <div class="transcript" id="compareNaiveStream" style="max-height:340px;"></div>
+      <div class="transcript" id="compareSmartStream" style="max-height:340px;"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 MISTAKES -->
+<section id="mistakes">
+  <div class="wrap">
+    <div class="kicker">05 — Field notes</div>
+    <h2>Common mistakes</h2>
+    <p class="lead">Click to expand.</p>
+    <div class="mistake-list" id="mistakeList"></div>
+  </div>
+</section>
+
+<footer><p>Conversation History Lab — built for the AutoLease RAG workshop</p></footer>
+
+<script>
+// ---------- SAMPLE CONVERSATION ----------
+const CONVERSATION = [
+  {role:"user", text:"Hi, I'm leasing a vehicle through AutoLease and I have a few questions about my contract.", importance:0.3},
+  {role:"bot", text:"Happy to help. Could you share your lease reference number so I can pull up the contract?", importance:0.1},
+  {role:"user", text:"It's AL-2291. Also, just so you know, I really prefer short answers — I don't have much time today.", importance:0.9},
+  {role:"bot", text:"Got it, AL-2291 — and noted on keeping things brief. What would you like to know?", importance:0.2},
+  {role:"user", text:"What's my mileage limit?", importance:0.4},
+  {role:"bot", text:"Your plan allows 20,000 km per year. Excess is billed at EUR 0.12/km.", importance:0.5},
+  {role:"user", text:"Okay. Also I'm planning a long road trip to Italy next month, around 3,000 extra km.", importance:0.6},
+  {role:"bot", text:"That would put you over by roughly 1,750 km depending on your current usage — about EUR 210 in overage fees.", importance:0.4},
+  {role:"user", text:"That's fine. Switching topics — can I get an extension on my insurance proof deadline?", importance:0.5},
+  {role:"bot", text:"Insurance proof is due within 14 days of the effective date. Extensions need approval from the leasing office directly.", importance:0.3},
+  {role:"user", text:"Understood. One more thing — what's the early termination fee again?", importance:0.4},
+  {role:"bot", text:"40% of your remaining monthly payments, calculated as of the termination date.", importance:0.5},
+  {role:"user", text:"Thanks. Given everything — the mileage overage and my preference for short answers — can you give me a one-line summary of my account status?", importance:0.7},
+  {role:"bot", text:"AL-2291: on track, ~1,750 km over annual limit if the Italy trip happens, insurance proof due in 14 days.", importance:0.6}
+];
+
+function approxTokens(str){
+  return Math.max(4, Math.round(str.split(/\s+/).length * 1.3));
+}
+CONVERSATION.forEach((m,i)=>{ m.turn = i+1; m.tokens = approxTokens(m.text); });
+
+function escapeHtml(s){
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ---------- SIMILARITY HEURISTIC (shared with chunking lab) ----------
+function vectorize(s){
+  const words = s.toLowerCase().replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(w=>w.length>3);
+  return new Set(words);
+}
+function jaccard(a,b){
+  if(a.size===0 || b.size===0) return 0;
+  let inter = 0;
+  for(const w of a) if(b.has(w)) inter++;
+  const union = a.size + b.size - inter;
+  return union===0?0:inter/union;
+}
+
+// ---------- 01 NAIVE OVERFLOW ----------
+let naiveTurn = 0;
+const BUDGET = 1200;
+function renderNaive(){
+  const slice = CONVERSATION.slice(0, naiveTurn);
+  const totalTokens = slice.reduce((a,m)=>a+m.tokens,0);
+  const pct = Math.min(100, (totalTokens/BUDGET)*100);
+  const fill = document.getElementById("naiveFill");
+  fill.style.width = pct+"%";
+  fill.classList.toggle("danger", totalTokens>BUDGET);
+  document.getElementById("naiveTokenLabel").textContent = `${totalTokens} / ${BUDGET}`;
+  document.getElementById("naiveMsgCount").textContent = slice.length;
+  document.getElementById("naiveTokenCount").textContent = totalTokens;
+  document.getElementById("turnCounter").textContent = `Turn ${naiveTurn} of ${CONVERSATION.length}`;
+  const statusEl = document.getElementById("naiveStatus");
+  const noteEl = document.getElementById("naiveStatusNote");
+  const warn = document.getElementById("overflowWarning");
+  if(totalTokens > BUDGET){
+    statusEl.textContent = "OVER BUDGET";
+    statusEl.style.color = "var(--bad)";
+    noteEl.textContent = "Oldest turns get silently truncated by the API.";
+    warn.classList.add("show");
+  } else if(totalTokens > BUDGET*0.75){
+    statusEl.textContent = "NEAR LIMIT";
+    statusEl.style.color = "var(--accent)";
+    noteEl.textContent = "Getting close — a few more turns will overflow.";
+    warn.classList.remove("show");
+  } else {
+    statusEl.textContent = "OK";
+    statusEl.style.color = "var(--good)";
+    noteEl.textContent = "Well within budget.";
+    warn.classList.remove("show");
+  }
+}
+document.getElementById("addTurnBtn").onclick = ()=>{
+  if(naiveTurn < CONVERSATION.length){
+    naiveTurn++;
+    renderNaive();
+  }
+};
+document.getElementById("resetNaiveBtn").onclick = ()=>{
+  naiveTurn = 0;
+  renderNaive();
+};
+renderNaive();
+
+// ---------- 02 PLAYGROUND STRATEGIES ----------
+const STRATEGIES = {
+  sliding: {
+    label: "Sliding window",
+    desc: "Keep only the last N messages. Simple and cheap — but anything stated earlier (like a stated preference) silently falls off the edge.",
+    params: [{key:"windowSize", label:"Window size (messages)", min:2, max:14, step:1, def:6}]
+  },
+  budget: {
+    label: "Token budget",
+    desc: "Keep the most recent messages until a token ceiling is hit, then stop — regardless of how many turns that is. More adaptive than a fixed message count.",
+    params: [{key:"budget", label:"Token budget", min:60, max:600, step:20, def:220}]
+  },
+  importance: {
+    label: "Importance scoring",
+    desc: "Each message is scored for how much it matters (stated preferences, key facts, decisions) and only messages above the threshold survive, regardless of age.",
+    params: [{key:"threshold", label:"Importance threshold", min:0.1, max:0.9, step:0.05, def:0.45}]
+  },
+  rag: {
+    label: "RAG over conversation",
+    desc: "Every message is embedded and stored. For the current question, only the most relevant past turns are retrieved — using the same similarity heuristic as the chunking lab (shared-vocabulary overlap standing in for cosine similarity).",
+    params: [{key:"query", label:"Current question", type:"text", def:"What's my mileage situation and account status?"}, {key:"topK", label:"Messages to retrieve", min:1, max:8, step:1, def:3}]
+  },
+  summarize: {
+    label: "Summarization",
+    desc: "Older messages get collapsed into a single LLM-generated summary; only recent turns stay verbatim. Saves the most tokens while keeping the gist of everything older.",
+    params: [{key:"keepRecent", label:"Keep verbatim (recent turns)", min:2, max:10, step:1, def:4}]
+  }
+};
+
+let currentStrategy = "sliding";
+let currentParams = {};
+function initParams(stratKey){
+  currentParams = {};
+  STRATEGIES[stratKey].params.forEach(p=>currentParams[p.key]=p.def);
+}
+initParams(currentStrategy);
+
+function renderStrategyButtons(){
+  const el = document.getElementById("strategyButtons");
+  el.innerHTML = "";
+  Object.keys(STRATEGIES).forEach(key=>{
+    const btn = document.createElement("button");
+    btn.className = "strategy-btn" + (key===currentStrategy ? " active":"");
+    btn.textContent = STRATEGIES[key].label;
+    btn.onclick = ()=>{
+      currentStrategy = key;
+      initParams(key);
+      renderStrategyButtons();
+      renderParams();
+      renderPlayground();
+    };
+    el.appendChild(btn);
+  });
+}
+
+function renderParams(){
+  const el = document.getElementById("paramRow");
+  el.innerHTML = "";
+  STRATEGIES[currentStrategy].params.forEach(p=>{
+    const wrap = document.createElement("div");
+    wrap.className = "param";
+    if(p.type==="text"){
+      const label = document.createElement("label");
+      label.textContent = p.label;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = currentParams[p.key];
+      input.oninput = ()=>{ currentParams[p.key]=input.value; renderPlayground(); };
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+    } else {
+      const label = document.createElement("label");
+      label.innerHTML = `${p.label} <span class="v">${currentParams[p.key]}</span>`;
+      const input = document.createElement("input");
+      input.type = "range";
+      input.min = p.min; input.max = p.max; input.step = p.step; input.value = currentParams[p.key];
+      input.oninput = ()=>{
+        currentParams[p.key] = parseFloat(input.value);
+        label.querySelector(".v").textContent = currentParams[p.key];
+        renderPlayground();
+      };
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+    }
+    el.appendChild(wrap);
+  });
+  document.getElementById("strategyDesc").textContent = STRATEGIES[currentStrategy].desc;
+}
+
+function applyStrategy(strategy, params){
+  // returns array of {msg, status: kept|dropped|summarized|retrieved, extra}
+  const n = CONVERSATION.length;
+  if(strategy==="sliding"){
+    const w = params.windowSize;
+    return CONVERSATION.map((m,i)=>({msg:m, status: i >= n-w ? "kept":"dropped"}));
+  }
+  if(strategy==="budget"){
+    const budget = params.budget;
+    let used = 0;
+    const result = new Array(n);
+    for(let i=n-1;i>=0;i--){
+      if(used + CONVERSATION[i].tokens <= budget){
+        used += CONVERSATION[i].tokens;
+        result[i] = {msg:CONVERSATION[i], status:"kept"};
+      } else {
+        result[i] = {msg:CONVERSATION[i], status:"dropped"};
+      }
+    }
+    return result;
+  }
+  if(strategy==="importance"){
+    return CONVERSATION.map(m=>({msg:m, status: m.importance >= params.threshold ? "kept":"dropped", extra:`score ${m.importance.toFixed(2)}`}));
+  }
+  if(strategy==="rag"){
+    const qVec = vectorize(params.query||"");
+    const scored = CONVERSATION.map(m=>({msg:m, sim: jaccard(qVec, vectorize(m.text))}));
+    const sorted = [...scored].sort((a,b)=>b.sim-a.sim);
+    const topSet = new Set(sorted.slice(0, params.topK).map(s=>s.msg.turn));
+    return scored.map(s=>({msg:s.msg, status: topSet.has(s.msg.turn) ? "retrieved":"dropped", extra:`sim ${s.sim.toFixed(2)}`}));
+  }
+  if(strategy==="summarize"){
+    const keep = params.keepRecent;
+    return CONVERSATION.map((m,i)=>({msg:m, status: i >= n-keep ? "kept":"summarized"}));
+  }
+  return CONVERSATION.map(m=>({msg:m, status:"kept"}));
+}
+
+function renderTranscriptInto(elId, results, options={}){
+  const el = document.getElementById(elId);
+  el.innerHTML = "";
+  if(options.summaryCard && results.some(r=>r.status==="summarized")){
+    const card = document.createElement("div");
+    card.className = "summary-card";
+    const summarizedTurns = results.filter(r=>r.status==="summarized").map(r=>r.msg.turn);
+    card.innerHTML = `<span class="tag">Generated summary (replaces turns ${summarizedTurns[0]}–${summarizedTurns[summarizedTurns.length-1]})</span>User AL-2291 prefers short answers, is planning ~3,000km Italy trip (will exceed mileage limit), asked about insurance deadline extension and early termination fees.`;
+    el.appendChild(card);
+  }
+  results.forEach(r=>{
+    if(r.status==="summarized" && options.summaryCard) return; // collapsed into summary card
+    const div = document.createElement("div");
+    div.className = "msg " + r.status;
+    const extra = r.extra ? `<span class="score-tag">${r.extra}</span>` : "";
+    div.innerHTML = `<div class="role">${r.msg.role}</div><div class="content">${escapeHtml(r.msg.text)}<span class="turntag">turn ${r.msg.turn} · ${r.msg.tokens}tok</span>${extra}</div>`;
+    el.appendChild(div);
+  });
+}
+
+function renderPlayground(){
+  const results = applyStrategy(currentStrategy, currentParams);
+  const kept = results.filter(r=>r.status==="kept"||r.status==="retrieved").length;
+  const summarized = results.filter(r=>r.status==="summarized").length;
+  const keptTokens = results.filter(r=>r.status==="kept"||r.status==="retrieved").reduce((a,r)=>a+r.msg.tokens,0);
+  const totalTokens = CONVERSATION.reduce((a,m)=>a+m.tokens,0);
+  let summaryText = `${kept}/${CONVERSATION.length} messages sent · ${keptTokens}/${totalTokens} tokens`;
+  if(summarized) summaryText += ` · ${summarized} compressed into summary`;
+  document.getElementById("chunkSummary").textContent = summaryText;
+  renderTranscriptInto("transcript", results, {summaryCard: currentStrategy==="summarize"});
+}
+
+renderStrategyButtons();
+renderParams();
+renderPlayground();
+
+// ---------- 03 HIERARCHICAL MEMORY ----------
+function renderHierarchy(){
+  const shortEl = document.getElementById("shortTermBody");
+  const longEl = document.getElementById("longTermBody");
+  shortEl.innerHTML = "";
+  longEl.innerHTML = "";
+  const shortTerm = CONVERSATION.slice(-3);
+  shortTerm.forEach(m=>{
+    const div = document.createElement("div");
+    div.className = "memory-item";
+    div.innerHTML = `${escapeHtml(m.text)}<div class="turntag">turn ${m.turn} · ${m.role}</div>`;
+    shortEl.appendChild(div);
+  });
+  const longTermFacts = [
+    {turn:3, text:"Preference: wants short, concise answers."},
+    {turn:1, text:"Lease reference: AL-2291."},
+    {turn:7, text:"Planning a ~3,000km trip to Italy next month — will exceed annual mileage limit."},
+    {turn:9, text:"Asked about insurance proof deadline extension."}
+  ];
+  longTermFacts.forEach(f=>{
+    const div = document.createElement("div");
+    div.className = "memory-item";
+    div.innerHTML = `${escapeHtml(f.text)}<div class="turntag">extracted from turn ${f.turn} · still active at turn 14</div>`;
+    longEl.appendChild(div);
+  });
+}
+renderHierarchy();
+
+// ---------- 04 COMPARE ----------
+function renderCompare(){
+  const naiveResults = CONVERSATION.map(m=>({msg:m, status:"kept"}));
+  const naiveTokens = CONVERSATION.reduce((a,m)=>a+m.tokens,0);
+  renderTranscriptInto("compareNaiveStream", naiveResults);
+  document.getElementById("compareNaiveScore").textContent = `${CONVERSATION.length} messages · ${naiveTokens} tokens · grows forever`;
+
+  const smartParams = {windowSize:5};
+  const slidingResults = applyStrategy("sliding", smartParams);
+  // layer importance on top: rescue high-importance dropped messages
+  const importanceThreshold = 0.6;
+  const smartResults = slidingResults.map(r=>{
+    if(r.status==="dropped" && r.msg.importance >= importanceThreshold){
+      return {msg:r.msg, status:"retrieved", extra:`rescued, importance ${r.msg.importance.toFixed(2)}`};
+    }
+    return r;
+  });
+  const smartKeptTokens = smartResults.filter(r=>r.status==="kept"||r.status==="retrieved").reduce((a,r)=>a+r.msg.tokens,0);
+  const smartKeptCount = smartResults.filter(r=>r.status==="kept"||r.status==="retrieved").length;
+  renderTranscriptInto("compareSmartStream", smartResults);
+  document.getElementById("compareSmartScore").textContent = `${smartKeptCount} messages · ${smartKeptTokens} tokens · stays bounded`;
+}
+renderCompare();
+
+// ---------- 05 MISTAKES ----------
+const MISTAKES = [
+  {title:"Sending the entire history every time", detail:"Cost and latency scale linearly with conversation length, and quality silently degrades long before you hit the hard token limit."},
+  {title:"Sliding window with no importance layer", detail:"A preference or constraint stated early — \"I have a 10-year-old child\", \"I'm on a tight budget\" — disappears the moment it scrolls out of the window, even though it should still apply."},
+  {title:"Summarizing too aggressively", detail:"Compressing recent turns as eagerly as old ones loses the back-and-forth nuance the model needs for the very next reply."},
+  {title:"No long-term memory at all", detail:"Every session restarts from zero — the user re-explains the same preferences and constraints every single conversation."},
+  {title:"Treating every message as equally important", detail:"A one-word acknowledgment (\"ok\", \"thanks\") costs the same retrieval/storage budget as a stated decision — scoring lets you tell them apart."},
+  {title:"RAG retrieval with no recency bias", detail:"Pure similarity search can surface a turn from minutes ago less often than a coincidentally keyword-matching one from much earlier, breaking conversational flow."}
+];
+const mistakeEl = document.getElementById("mistakeList");
+MISTAKES.forEach(m=>{
+  const row = document.createElement("div");
+  row.className = "mistake-row";
+  row.innerHTML = `<div class="icon">✗</div><div class="body"><div class="title">${m.title}</div><div class="detail">${m.detail}</div></div><div class="toggle">expand</div>`;
+  row.onclick = ()=>{
+    row.classList.toggle("open");
+    row.querySelector(".toggle").textContent = row.classList.contains("open") ? "collapse" : "expand";
+  };
+  mistakeEl.appendChild(row);
+});
+</script>
+</body>
+</html>
